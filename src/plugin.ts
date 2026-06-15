@@ -247,6 +247,27 @@ const plugin = (
             transition: csSettings.default_transition || 'slide'
           });
           await reveal.initialize().then(() => {
+            // Fix: reset scroll position to top on every slide change
+            const slidesContainer = revealContainer.querySelector('.slides');
+            if (slidesContainer) {
+              const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                  if (mutation.type === 'attributes') {
+                    const target = mutation.target as HTMLElement;
+                    if (target.classList && target.classList.contains('present')) {
+                      target.scrollTop = 0;
+                    }
+                  }
+                });
+              });
+              slidesContainer.querySelectorAll('section').forEach(function(section) {
+                observer.observe(section, {
+                  attributes: true,
+                  attributeFilter: ['class']
+                });
+              });
+            }
+
             if (reveal !== null) {
               if (mode === 'first') {
                 reveal.slide(0);
@@ -321,13 +342,72 @@ const plugin = (
     }
   };
 
-  const addToRevealSlide = (slide: any, item: any) => {
+const addToRevealSlide = (slide: any, item: any) => {
     if (
       item.cell.model.type === 'code' &&
       item.cell.model.metadata.slideshow?.hide_code
     ) {
       item.cell.node.classList.add('hide-code');
     }
+
+    // Handle markdown cells with animation directives
+    if (item.cell.model.type === 'markdown') {
+      const src = item.cell.model.sharedModel.getSource();
+
+      // Fix (Commit 2): handle raw data-animate HTML in markdown cells
+      // bypasses JupyterLab's HTML sanitizer which strips data-animate
+      if (src.includes('data-animate')) {
+        const animWrapper = document.createElement('div');
+        animWrapper.innerHTML = src;
+        const animDiv = animWrapper.querySelector('[data-animate]');
+        if (animDiv) {
+          const container = document.createElement('div');
+          container.appendChild(animDiv);
+          item.children?.forEach((child: any) => {
+            addToRevealSlide(container, child);
+          });
+          slide.appendChild(container);
+          item.fragments?.forEach((fragment: any) => {
+            const fragContainer = document.createElement('div');
+            fragContainer.classList.add('fragment');
+            addToRevealSlide(fragContainer, fragment);
+            slide.appendChild(fragContainer);
+          });
+          return;
+        }
+      }
+
+      // Fix (Commit 3): handle {svg-animate} MyST directive in markdown cells
+      // Allows the same notebook source to work in both the Reveal.js slideshow
+      // and a mystmd / Jupyter Book 2 build without duplication.
+      // Parses :::{svg-animate} ... ::: and wraps the body in a data-animate div
+      // so the Rajgoel animate plugin handles it identically to raw data-animate HTML.
+      if (src.includes(':::{svg-animate}')) {
+        const directiveMatch = src.match(
+          /:::\{svg-animate\}[^\n]*\n(?::[a-z-]+:[^\n]*\n)*([\s\S]*?):::/
+        );
+        if (directiveMatch) {
+          const body = directiveMatch[1].trim();
+          const animDiv = document.createElement('div');
+          animDiv.setAttribute('data-animate', '');
+          animDiv.innerHTML = body;
+          const container = document.createElement('div');
+          container.appendChild(animDiv);
+          item.children?.forEach((child: any) => {
+            addToRevealSlide(container, child);
+          });
+          slide.appendChild(container);
+          item.fragments?.forEach((fragment: any) => {
+            const fragContainer = document.createElement('div');
+            fragContainer.classList.add('fragment');
+            addToRevealSlide(fragContainer, fragment);
+            slide.appendChild(fragContainer);
+          });
+          return;
+        }
+      }
+    }
+
     if (item.transition) {
       let transition = item.transition;
       if (item.transitionOut) {
@@ -341,7 +421,6 @@ const plugin = (
     slide.style.transitionDuration = `${item.transitionDuration}s`;
     const container = document.createElement('div');
     container.appendChild(item.cell.node);
-
     item.children?.forEach((child: any) => {
       addToRevealSlide(container, child);
     });

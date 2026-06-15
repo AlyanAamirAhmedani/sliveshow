@@ -1,0 +1,9 @@
+version: 1
+project:
+  title: dive-custom-slideshow Animation Demo
+  plugins:
+    - svg-animate.mjs
+  toc:
+    - file: animation_demo.ipynb
+site:
+  template: book-theme
