@@ -1,11 +1,19 @@
-# dive_custom_slideshow
+# sliveshow
 
-[![Github Actions Status](https://github.com/ltshum/fyp-custom-slideshow/workflows/Build/badge.svg)](https://github.com/ltshum/fyp-custom-slideshow/actions/workflows/build.yml)
+[![Github Actions Status](https://github.com/AlyanAamirAhmedani/sliveshow/workflows/Build/badge.svg)](https://github.com/AlyanAamirAhmedani/sliveshow/actions/workflows/build.yml)
 
-JupyterLab extension for animated slideshow.
+A JupyterLab extension that turns Jupyter notebooks into live, animated Reveal.js slideshows — with scrollable slides, SVG animations, and MyST directive support for Jupyter Book 2.
 
-Demo: https://ltshum.github.io/jupyterlite/lab/index.html
-<br>(Please run all cells before initializing slideshow to correctly display animations.)
+**Install:**
+```bash
+pip install sliveshow
+```
+
+**PyPI:** https://pypi.org/project/sliveshow/  
+**Demo:** https://ltshum.github.io/jupyterlite/lab/index.html  
+*(Run all cells before starting the slideshow to display animations correctly.)*
+
+---
 
 ## Requirements
 
@@ -13,130 +21,158 @@ Demo: https://ltshum.github.io/jupyterlite/lab/index.html
 
 ## Install
 
-To install the extension, execute:
-
 ```bash
-pip install dive_custom_slideshow
+pip install sliveshow
 ```
 
 ## Uninstall
 
-To remove the extension, execute:
-
 ```bash
-pip uninstall dive_custom_slideshow
+pip uninstall sliveshow
 ```
+
+---
 
 ## Usage
 
 ### Slideshow
 
-The slideshow follows the Reveal.js framework. The slide type of a cell can be changed in `COMMON TOOLS > Slide Type`. Available slide types include **Slide**, **Sub-Slide**, **Fragment**, **Skip**.
+The slideshow uses the [Reveal.js](https://revealjs.com/) framework. Set the slide type of each cell via **COMMON TOOLS > Slide Type**. Available types: **Slide**, **Sub-Slide**, **Fragment**, **Skip**.
 
-![Image](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/common_tools.png?raw=true)
+![Slide type panel](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/common_tools.png?raw=true)
 
-The transition type and duration of a cell can be changed in `SLIDESHOW TOOLS`. Available transition types include **Slide**, **Fade**, **Zoom**. The default transition type can be changed in Settings. Transition-out type inherits the transition type by default.
+Transition type and duration are set per-cell in **SLIDESHOW TOOLS**. Available types: **Slide**, **Fade**, **Zoom**. The default can be changed in Settings.
 
-For transition type of **Slide**, the slide direction can be either **Horizontal** or **Vertical**. By default, Slides have horizontal transitions, and Sub-Slides have vertical transitions.
+For **Slide** transitions, direction is **Horizontal** (Slides) or **Vertical** (Sub-Slides) by default.
 
-![Image](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/transition.png?raw=true)
+![Transition settings](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/transition.png?raw=true)
 
-For code cells, the input of the cell can be hidden by checking `Hide Code Cell`, leaving only the output visible.
+Code cell input can be hidden via **Hide Code Cell**, showing only the output.
 
-![Image](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/code_cell.png?raw=true)
+![Hide code cell](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/code_cell.png?raw=true)
 
-To start a slideshow, select `Slideshow` in the main menu and select either `Start from first cell` or `Start from current cell`. `Start from first cell` starts the slideshow from the beginning. `Start from current cell` starts the slideshow at the selected cell.
+To start a slideshow, use the **Slideshow** menu → **Start from first cell** or **Start from current cell**. To exit, press Escape or use **Exit slideshow**.
 
-To exit a slideshow, exit fullscreen. The `Exit slideshow` option is an alternative for when exiting fullscreen does not exit the slideshow successfully.
+![Start slideshow](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/start_slideshow.png?raw=true)
 
-![Image](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/start_slideshow.png?raw=true)
+---
 
 ### SVG Animation
 
-The SVG animation feature uses the [Reveal.js Animate and LoadContent plugins by Asvin Goel](https://github.com/rajgoel/reveal.js-plugins). Animations are loaded after starting a slideshow.
+SVG animations use the [Reveal.js Animate plugin by Asvin Goel](https://github.com/rajgoel/reveal.js-plugins). Animations load after the slideshow starts.
 
-To add an SVG image for animating, add `%%markdown` at the start of a code cell, and create a `<div>` block with attribute `data-animate`. Either add the SVG data inside the block, or use the [`data-load` attribute from the LoadContent plugin](https://github.com/rajgoel/reveal.js-plugins/blob/master/loadcontent/README.md).
+#### Method A — Raw HTML in a markdown cell
 
-![Image](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/SVG.png?raw=true)
+Add a `<div data-animate>` block containing your SVG and a JSON config comment directly in a markdown cell:
 
-To animate the SVG image, add a comment block with a JSON string. The `setup` object controls the images after loading. The `animation` object controls the images on each fragment. To successfully set up the animation, the corresponding number of fragments must be added in the cell. More details can be viewed in the [README of the Animate plugin](https://github.com/rajgoel/reveal.js-plugins/blob/master/animate/README.md).
+```markdown
+<div data-animate>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300">
+  <circle id="c1" cx="150" cy="150" r="60" style="fill:steelblue"/>
+</svg>
+<!--
+{
+  "setup": [{
+    "element": "#c1",
+    "modifier": "attr",
+    "parameters": [{ "r": 100 }],
+    "duration": 1500,
+    "begin": 0
+  }]
+}
+-->
+</div>
+```
 
-![Image](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/SVG_anim.png?raw=true)
+#### Method B — `{svg-animate}` MyST directive *(recommended)*
+
+Use the `{svg-animate}` directive in a markdown cell. The same cell works in both the live Reveal.js slideshow **and** a static [Jupyter Book 2](https://jupyterbook.org) / [mystmd](https://mystmd.org) export:
+
+```
+:::{svg-animate} Circle animation
+:height: 320px
+:background: white
+<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'>
+  <circle id='c1' cx='150' cy='150' r='60' style='fill:steelblue'/>
+</svg>
+<!--
+{
+  "setup": [{ "element": "#c1", "modifier": "attr", "parameters": [{ "r": 100 }], "duration": 1500, "begin": 0 }]
+}
+-->
+:::
+```
+
+To enable `{svg-animate}` in a mystmd/Jupyter Book 2 build, add the plugin to your `myst.yml`:
+
+```yaml
+project:
+  plugins:
+    - svg-animate.mjs
+```
+
+The `svg-animate.mjs` plugin file is included in the `Demo/` folder.
+
+![SVG animation](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/SVG.png?raw=true)
+
+The JSON config controls the animation. `setup` runs on load; `animation` runs per fragment. See the [Animate plugin README](https://github.com/rajgoel/reveal.js-plugins/blob/master/animate/README.md) for full options.
+
+![SVG animation config](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/SVG_anim.png?raw=true)
+
+---
 
 ### MathJax SVG
 
-MathJax 4 is installed to convert math expressions into SVG images, which can be used for animations. Components in the SVG image can be selected with selector `g[data-latex='x']`, which is simplified into `mj['x']`.
+MathJax 4 converts math expressions into SVG, which can be animated. Select components with `g[data-latex='x']`, shortened to `mj['x']`.
 
-![Image](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/mathjax.png?raw=true)
+![MathJax](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/mathjax.png?raw=true)
+
+---
 
 ## Contributing
 
 ### Development install
 
-Note: You will need NodeJS to build the extension package.
-
-The `jlpm` command is JupyterLab's pinned version of
-[yarn](https://yarnpkg.com/) that is installed with JupyterLab. You may use
-`yarn` or `npm` in lieu of `jlpm` below.
+You will need Node.js and JupyterLab installed.
 
 ```bash
-# Clone the repo to your local environment
-# Change directory to the dive_custom_slideshow directory
-# Install package in development mode
+# Clone the repo
+git clone https://github.com/AlyanAamirAhmedani/sliveshow
+cd sliveshow
+
+# Install in development mode
 pip install -e "."
-# Link your development version of the extension with JupyterLab
+
+# Link with JupyterLab
 jupyter labextension develop . --overwrite
-# Rebuild extension Typescript source after making changes
+
+# Build TypeScript
 jlpm build
 ```
 
-You can watch the source directory and run JupyterLab at the same time in different terminals to watch for changes in the extension's source and automatically rebuild the extension.
+Watch mode (auto-rebuild on save):
 
 ```bash
-# Watch the source directory in one terminal, automatically rebuilding when needed
+# Terminal 1
 jlpm watch
-# Run JupyterLab in another terminal
+
+# Terminal 2
 jupyter lab
-```
-
-With the watch command running, every saved change will immediately be built locally and available in your running JupyterLab. Refresh JupyterLab to load the change in your browser (you may need to wait several seconds for the extension to be rebuilt).
-
-By default, the `jlpm build` command generates the source maps for this extension to make it easier to debug using the browser dev tools. To also generate source maps for the JupyterLab core extensions, you can run the following command:
-
-```bash
-jupyter lab build --minimize=False
 ```
 
 ### Development uninstall
 
 ```bash
-pip uninstall dive_custom_slideshow
+pip uninstall sliveshow
 ```
 
-In development mode, you will also need to remove the symlink created by `jupyter labextension develop`
-command. To find its location, you can run `jupyter labextension list` to figure out where the `labextensions`
-folder is located. Then you can remove the symlink named `custom-slideshow` within that folder.
+Remove the symlink created by `jupyter labextension develop`:
 
-### Testing the extension
-
-#### Frontend tests
-
-This extension is using [Jest](https://jestjs.io/) for JavaScript code testing.
-
-To execute them, execute:
-
-```sh
-jlpm
-jlpm test
+```bash
+jupyter labextension list  # find labextensions folder
+# remove the sliveshow symlink from that folder
 ```
 
-#### Integration tests
+### Packaging
 
-This extension uses [Playwright](https://playwright.dev/docs/intro) for the integration tests (aka user level tests).
-More precisely, the JupyterLab helper [Galata](https://github.com/jupyterlab/jupyterlab/tree/master/galata) is used to handle testing the extension in JupyterLab.
-
-More information are provided within the [ui-tests](./ui-tests/README.md) README.
-
-### Packaging the extension
-
-See [RELEASE](RELEASE.md)
+See [RELEASE](RELEASE.md).
