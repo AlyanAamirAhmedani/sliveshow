@@ -30,10 +30,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           console.log('sliveshow settings loaded:', settings.composite);
         })
         .catch(reason => {
-          console.error(
-            'Failed to load settings for sliveshow.',
-            reason
-          );
+          console.error('Failed to load settings for sliveshow.', reason);
         });
     }
   }

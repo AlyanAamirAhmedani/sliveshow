@@ -5,13 +5,14 @@
 A JupyterLab extension that turns Jupyter notebooks into live, animated Reveal.js slideshows — with scrollable slides, SVG animations, and MyST directive support for Jupyter Book 2.
 
 **Install:**
+
 ```bash
 pip install sliveshow
 ```
 
 **PyPI:** https://pypi.org/project/sliveshow/  
 **Demo:** https://ltshum.github.io/jupyterlite/lab/index.html  
-*(Run all cells before starting the slideshow to display animations correctly.)*
+_(Run all cells before starting the slideshow to display animations correctly.)_
 
 ---
 
@@ -84,7 +85,7 @@ Add a `<div data-animate>` block containing your SVG and a JSON config comment d
 </div>
 ```
 
-#### Method B — `{svg-animate}` MyST directive *(recommended)*
+#### Method B — `{svg-animate}` MyST directive _(recommended)_
 
 Use the `{svg-animate}` directive in a markdown cell. The same cell works in both the live Reveal.js slideshow **and** a static [Jupyter Book 2](https://jupyterbook.org) / [mystmd](https://mystmd.org) export:
 

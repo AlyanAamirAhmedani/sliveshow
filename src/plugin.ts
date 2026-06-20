@@ -250,17 +250,20 @@ const plugin = (
             // Fix: reset scroll position to top on every slide change
             const slidesContainer = revealContainer.querySelector('.slides');
             if (slidesContainer) {
-              const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
+              const observer = new MutationObserver(mutations => {
+                mutations.forEach(mutation => {
                   if (mutation.type === 'attributes') {
                     const target = mutation.target as HTMLElement;
-                    if (target.classList && target.classList.contains('present')) {
+                    if (
+                      target.classList &&
+                      target.classList.contains('present')
+                    ) {
                       target.scrollTop = 0;
                     }
                   }
                 });
               });
-              slidesContainer.querySelectorAll('section').forEach(function(section) {
+              slidesContainer.querySelectorAll('section').forEach(section => {
                 observer.observe(section, {
                   attributes: true,
                   attributeFilter: ['class']
@@ -342,7 +345,7 @@ const plugin = (
     }
   };
 
-const addToRevealSlide = (slide: any, item: any) => {
+  const addToRevealSlide = (slide: any, item: any) => {
     if (
       item.cell.model.type === 'code' &&
       item.cell.model.metadata.slideshow?.hide_code

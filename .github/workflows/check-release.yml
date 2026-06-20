@@ -26,5 +26,5 @@ jobs:
       - name: Upload Distributions
         uses: actions/upload-artifact@v4
         with:
-          name: dive_custom_slideshow-releaser-dist-${{ github.run_number }}
+          name: sliveshow-releaser-dist-${{ github.run_number }}
           path: .jupyter_releaser_checkout/dist
