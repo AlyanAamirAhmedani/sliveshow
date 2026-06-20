@@ -19,8 +19,7 @@
 
 /* Fix 1 & 3: slides scrollable, content not clipped, no extra padding */
 .reveal .slides > section.present {
-  overflow-y: scroll !important;
-  overflow-x: hidden !important;
+  overflow: hidden scroll !important;
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
 }
