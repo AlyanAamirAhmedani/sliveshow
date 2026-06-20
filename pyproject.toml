@@ -3,7 +3,7 @@ requires = ["hatchling>=1.5.0", "jupyterlab>=4.0.0,<5", "hatch-nodejs-version>=0
 build-backend = "hatchling.build"
 
 [project]
-name = "dive-custom-slideshow"
+name = "sliveshow"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
@@ -34,22 +34,22 @@ source = "nodejs"
 fields = ["description", "authors", "urls", "keywords"]
 
 [tool.hatch.build.targets.sdist]
-artifacts = ["dive_custom_slideshow/labextension"]
+artifacts = ["sliveshow/labextension"]
 exclude = [".github", "binder"]
 
 [tool.hatch.build.targets.wheel.shared-data]
-"dive_custom_slideshow/labextension" = "share/jupyter/labextensions/dive_custom_slideshow"
-"install.json" = "share/jupyter/labextensions/dive_custom_slideshow/install.json"
+"sliveshow/labextension" = "share/jupyter/labextensions/sliveshow"
+"install.json" = "share/jupyter/labextensions/sliveshow/install.json"
 
 [tool.hatch.build.hooks.version]
-path = "dive_custom_slideshow/_version.py"
+path = "sliveshow/_version.py"
 
 [tool.hatch.build.hooks.jupyter-builder]
 dependencies = ["hatch-jupyter-builder>=0.5"]
 build-function = "hatch_jupyter_builder.npm_builder"
 ensured-targets = [
-    "dive_custom_slideshow/labextension/static/style.js",
-    "dive_custom_slideshow/labextension/package.json",
+    "sliveshow/labextension/static/style.js",
+    "sliveshow/labextension/package.json",
 ]
 
 [tool.hatch.build.hooks.jupyter-builder.build-kwargs]
@@ -60,7 +60,7 @@ npm = ["jlpm"]
 build_cmd = "install:extension"
 npm = ["jlpm"]
 source_dir = "src"
-build_dir = "dive_custom_slideshow/labextension"
+build_dir = "sliveshow/labextension"
 
 [tool.jupyter-releaser.options]
 version_cmd = "hatch version"

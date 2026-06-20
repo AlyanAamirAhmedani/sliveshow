@@ -9,7 +9,7 @@ import pluginMain from './plugin';
 import mjPlugin from './mathjax4/plugin';
 
 /**
- * Initialization data for the dive-custom-slideshow extension.
+ * Initialization data for the sliveshow extension.
  */
 const plugin: JupyterFrontEndPlugin<void> = {
   id: `${PLUGIN_ID}:plugin`,
@@ -21,17 +21,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
     nbTracker: INotebookTracker,
     settingRegistry: ISettingRegistry
   ) => {
-    console.log('JupyterLab extension dive-custom-slideshow is activated!');
+    console.log('JupyterLab extension sliveshow is activated!');
     pluginMain(app, nbTracker, settingRegistry);
     if (settingRegistry) {
       settingRegistry
         .load(plugin.id)
         .then(settings => {
-          console.log('dive-custom-slideshow settings loaded:', settings.composite);
+          console.log('sliveshow settings loaded:', settings.composite);
         })
         .catch(reason => {
           console.error(
-            'Failed to load settings for dive-custom-slideshow.',
+            'Failed to load settings for sliveshow.',
             reason
           );
         });

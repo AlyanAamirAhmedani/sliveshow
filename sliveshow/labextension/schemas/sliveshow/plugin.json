@@ -1,7 +1,7 @@
 {
   "jupyter.lab.shortcuts": [],
-  "title": "custom-slideshow",
-  "description": "custom-slideshow settings.",
+  "title": "sliveshow",
+  "description": "sliveshow settings.",
   "type": "object",
   "properties": {
     "dummy": {
@@ -23,7 +23,7 @@
     "main": [
       {
         "id": "slideshow-menu",
-        "label": "Slideshow",
+        "label": "Sliveshow",
         "rank": 80,
         "items": [
           {

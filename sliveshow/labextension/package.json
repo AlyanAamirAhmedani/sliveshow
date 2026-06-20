@@ -1,20 +1,20 @@
 {
-  "name": "custom-slideshow",
-  "version": "0.1.2",
+  "name": "sliveshow",
+  "version": "0.1.4",
   "description": "JupyterLab extension for animated slideshow.",
   "keywords": [
     "jupyter",
     "jupyterlab",
     "jupyterlab-extension"
   ],
-  "homepage": "https://github.com/ltshum/fyp-custom-slideshow",
+  "homepage": "https://github.com/AlyanAamirAhmedani/sliveshow",
   "bugs": {
-    "url": "https://github.com/ltshum/fyp-custom-slideshow/issues"
+    "url": "https://github.com/AlyanAamirAhmedani/sliveshow/issues"
   },
   "license": "BSD-3-Clause",
   "author": {
-    "name": "ltshum",
-    "email": "ltshum6-c@my.cityu.edu.hk"
+    "name": "Alyan Ahmedani",
+    "email": "ahmedanialyanaamir@gmail.com"
   },
   "files": [
     "lib/**/*.{d.ts,eot,gif,html,jpg,js,js.map,json,png,svg,woff2,ttf}",
@@ -27,7 +27,7 @@
   "style": "style/index.css",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ltshum/fyp-custom-slideshow.git"
+    "url": "https://github.com/AlyanAamirAhmedani/sliveshow.git"
   },
   "scripts": {
     "build": "jlpm build:lib && jlpm build:labextension:dev",
@@ -39,7 +39,7 @@
     "clean": "jlpm clean:lib",
     "clean:lib": "rimraf lib tsconfig.tsbuildinfo",
     "clean:lintcache": "rimraf .eslintcache .stylelintcache",
-    "clean:labextension": "rimraf custom_slideshow/labextension custom_slideshow/_version.py",
+    "clean:labextension": "rimraf sliveshow/labextension sliveshow/_version.py",
     "clean:all": "jlpm clean:lib && jlpm clean:labextension && jlpm clean:lintcache",
     "eslint": "jlpm eslint:check --fix",
     "eslint:check": "eslint . --cache --ext .ts,.tsx",
@@ -57,16 +57,16 @@
     "watch:labextension": "jupyter labextension watch ."
   },
   "dependencies": {
-    "@jupyterlab/application": "^4.0.0",
-    "@jupyterlab/settingregistry": "^4.0.0",
+    "@jupyterlab/application": "^4.5.0",
+    "@jupyterlab/settingregistry": "^4.5.0",
     "@mathjax/src": "4",
     "@svgdotjs/svg.js": "^3.2.5",
     "@types/reveal.js": "^5.2.2",
     "reveal.js": "^5.2.1"
   },
   "devDependencies": {
-    "@jupyterlab/builder": "^4.0.0",
-    "@jupyterlab/testutils": "^4.0.0",
+    "@jupyterlab/builder": "^4.5.0",
+    "@jupyterlab/testutils": "^4.5.0",
     "@types/jest": "^29.2.0",
     "@types/json-schema": "^7.0.11",
     "@types/react": "^18.0.26",
@@ -101,10 +101,10 @@
   },
   "jupyterlab": {
     "extension": true,
-    "outputDir": "custom_slideshow/labextension",
+    "outputDir": "sliveshow/labextension",
     "schemaDir": "schema",
     "_build": {
-      "load": "static/remoteEntry.4db33c6c7b1f485debf2.js",
+      "load": "static/remoteEntry.76254bacd4d4860e8f7a.js",
       "extension": "./extension",
       "style": "./style"
     }

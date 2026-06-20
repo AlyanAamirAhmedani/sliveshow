@@ -52,7 +52,7 @@ const plugin = (
       csSettings = loadSettings(settingRes);
       // update settings
       settingRes.changed.connect(() => {
-        console.log('dive-custom-slideshow settings updated:');
+        console.log('sliveshow settings updated:');
         csSettings = loadSettings(settingRes);
         console.log(csSettings);
       });
