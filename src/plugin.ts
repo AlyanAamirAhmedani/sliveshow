@@ -244,32 +244,33 @@ const plugin = (
               autoplay: true
             },
             plugins: [window.RevealLoadContent, window.RevealAnimate],
-            transition: csSettings.default_transition || 'slide'
+            transition: csSettings.default_transition || 'slide',
+            // Fix (A1): disable Reveal's auto-scaling/centering so the slideshow
+            // behaves like a normal page. Otherwise Reveal scales content to fit
+            // the viewport, so browser zoom (Cmd +/-) couldn't enlarge content and
+            // only ballooned the fixed nav arrows, and zoom-out didn't reset.
+            // Layout/centering is handled by our own CSS in style/base.css.
+            disableLayout: true
           });
           await reveal.initialize().then(() => {
-            // Fix: reset scroll position to top on every slide change
-            const slidesContainer = revealContainer.querySelector('.slides');
-            if (slidesContainer) {
-              const observer = new MutationObserver(mutations => {
-                mutations.forEach(mutation => {
-                  if (mutation.type === 'attributes') {
-                    const target = mutation.target as HTMLElement;
-                    if (
-                      target.classList &&
-                      target.classList.contains('present')
-                    ) {
-                      target.scrollTop = 0;
-                    }
-                  }
-                });
-              });
-              slidesContainer.querySelectorAll('section').forEach(section => {
-                observer.observe(section, {
-                  attributes: true,
-                  attributeFilter: ['class']
-                });
-              });
-            }
+            // Fix (A2): reset scroll to top only on an actual slide change.
+            // Reveal's native `slidechanged` event fires once per navigation,
+            // unlike the previous MutationObserver which reset scrollTop on
+            // every class mutation (fragments, Animate-plugin layout calls) and
+            // so kept yanking the slide back to the top while the user scrolled.
+            reveal?.on('slidechanged', (event: any) => {
+              const current = event?.currentSlide as HTMLElement | undefined;
+              if (!current) {
+                return;
+              }
+              current.scrollTop = 0;
+              // For vertical (sub-slide) stacks the scrollable element is the
+              // parent <section>, so reset that too.
+              const parent = current.parentElement;
+              if (parent && parent.tagName === 'SECTION') {
+                parent.scrollTop = 0;
+              }
+            });
 
             if (reveal !== null) {
               if (mode === 'first') {
