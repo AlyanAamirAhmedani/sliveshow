@@ -154,3 +154,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
       - uses: jupyterlab/maintainer-tools/.github/actions/check-links@v1
+        with:
+          # The demo lives on GitHub Pages, published by the separate "Deploy
+          # demo" workflow, which can still be deploying (or queued) when this
+          # job runs — so the link 404s intermittently. Deploy demo already
+          # verifies the site builds, so skip these URLs in the link checker.
+          ignore_links: 'https://alyanaamirahmedani.github.io/.*'
