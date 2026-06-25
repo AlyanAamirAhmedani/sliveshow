@@ -26,15 +26,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # xeus kernels are built into the browser via an emscripten-forge conda
+      # environment, which jupyterlite-xeus creates by shelling out to
+      # `micromamba`. setup-micromamba installs that binary (and gives us
+      # python + pip), without which the build fails with
+      # "micromamba is needed for creating the emscripten environment".
+      - name: Set up build environment (micromamba + python)
+        uses: mamba-org/setup-micromamba@v2
         with:
-          python-version: '3.12'
+          environment-name: lite-build
+          create-args: >-
+            python=3.12
+            pip
+          init-shell: bash
 
       - name: Install JupyterLite + sliveshow
+        shell: bash -el {0}
         run: python -m pip install -r jupyterlite-demo/requirements.txt
 
       - name: Build the JupyterLite site
+        shell: bash -el {0}
         working-directory: jupyterlite-demo
         run: jupyter lite build --contents content --output-dir _output
 
