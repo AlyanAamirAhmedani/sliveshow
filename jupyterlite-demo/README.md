@@ -3,7 +3,7 @@
 A browser-only [JupyterLite](https://jupyterlite.readthedocs.io) deployment of
 **sliveshow**, so anyone can try the slideshow without installing anything.
 
-**Live site:** https://AlyanAamirAhmedani.github.io/sliveshow/
+**Live site:** https://alyanaamirahmedani.github.io/sliveshow/
 
 ## How it works
 
@@ -21,7 +21,7 @@ Deployment is automatic via `.github/workflows/deploy-demo.yml` on every push
 that touches `jupyterlite-demo/`. One-time setup on the GitHub repo:
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
-2. Push a change under `jupyterlite-demo/` (or run the *Deploy demo* workflow
+2. Push a change under `jupyterlite-demo/` (or run the _Deploy demo_ workflow
    manually from the Actions tab).
 3. After it succeeds, the site is live at the URL above.
 
