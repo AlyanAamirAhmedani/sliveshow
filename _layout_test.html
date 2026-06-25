@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sliveshow layout test — zoom + scroll + centering</title>
+
+    <!-- Same reveal.js version the extension bundles (5.2.1) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reset.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css" />
+
+    <style>
+      /* ---- minimal JupyterLab-ish cell mock (just enough to mimic widths) ---- */
+      .jp-Cell { padding: 8px; margin: 0; background: transparent; width: 100%; }
+      .jp-RenderedMarkdown h1 { font-size: 2.6em; font-weight: 600; line-height: 1.1; margin: 0; }
+      .jp-RenderedMarkdown p { font-size: 1.2em; }
+      .jp-Editor, .cm-editor { background: #f5f5f5; border-radius: 6px; padding: 10px; }
+      .jp-Editor pre { margin: 0; font-family: ui-monospace, monospace; white-space: pre; }
+      .jp-OutputArea { padding: 6px 0; }
+
+      /* =================================================================
+         EXACT layout rules from sliveshow style/base.css (0.1.6 rework).
+         Keep this block in sync with the extension when changing fixes.
+         ================================================================= */
+      .reveal { width: 100vw !important; height: 100% !important; max-width: 100vw !important; overflow: hidden !important; }
+
+      .reveal .slides {
+        position: absolute !important; inset: 0 !important;
+        width: 100vw !important; max-width: 100vw !important; height: 100% !important;
+        margin: 0 !important; padding: 0 !important; transform: none !important;
+        text-align: center;
+      }
+
+      .reveal .slides > section,
+      .reveal .slides > section > section {
+        width: 100vw !important; max-width: 100vw !important; height: 100% !important;
+        box-sizing: border-box !important; padding: 3% 4% !important;
+        display: flex !important; flex-direction: column !important; align-items: center !important;
+        overflow: hidden auto !important; overscroll-behavior: contain !important; transform: none !important;
+      }
+
+      .reveal .slides > section::before, .reveal .slides > section::after,
+      .reveal .slides > section > section::before, .reveal .slides > section > section::after {
+        content: ''; flex: 0 0 auto; margin: auto 0;
+      }
+
+      .reveal .slides > section > *, .reveal .slides > section > section > *,
+      .reveal .slides .jp-Cell, .reveal .slides .jp-RenderedMarkdown {
+        max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; overflow-wrap: break-word;
+      }
+
+      .reveal .slides .jp-Editor, .reveal .slides .cm-editor, .reveal .slides .jp-RenderedText,
+      .reveal .slides .jp-OutputArea, .reveal .slides pre, .reveal .slides table { text-align: left !important; }
+
+      .reveal .controls { position: fixed !important; bottom: 16px !important; right: 16px !important; z-index: 9999 !important; }
+
+      /* ---- test-harness chrome (NOT part of the extension) ---- */
+      #panel {
+        position: fixed; top: 8px; left: 8px; z-index: 100000;
+        font: 13px/1.4 system-ui, sans-serif; background: rgba(255,255,255,.95);
+        border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; max-width: 340px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.12);
+      }
+      #panel button { font: inherit; margin: 2px; padding: 3px 8px; cursor: pointer; }
+      #panel .row { margin: 4px 0; }
+      #verdict { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; margin-top: 6px; }
+      .ok { color: #137333; } .bad { color: #c5221f; }
+    </style>
+  </head>
+  <body>
+    <div id="panel">
+      <strong>sliveshow layout test</strong>
+      <div class="row">Zoom (simulates Cmd&nbsp;+/−):
+        <button onclick="setZoom(0.5)">50%</button>
+        <button onclick="setZoom(1)">100%</button>
+        <button onclick="setZoom(1.5)">150%</button>
+        <button onclick="setZoom(2)">200%</button>
+      </div>
+      <div class="row">Also try real browser zoom (Cmd&nbsp;+ / Cmd&nbsp;−).</div>
+      <div class="row">
+        <button onclick="fastScrollTest()">Run fast-scroll test (Bug B)</button>
+        <button onclick="runAll()">Run all checks</button>
+      </div>
+      <div class="row">Arrow keys / on-screen arrows change slides.</div>
+      <div id="verdict">No checks run yet.</div>
+    </div>
+
+    <div class="reveal">
+      <div class="slides">
+        <!-- Slide 1: short title — tests vertical + horizontal centering (Bug A) -->
+        <section>
+          <section>
+            <div class="cell-wrap">
+              <div class="jp-Cell jp-MarkdownCell">
+                <div class="jp-RenderedMarkdown"><h1>Associative Containers</h1></div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <!-- Slide 2: very tall content — tests top-anchored scroll, no clip, no blank (Bug B) -->
+        <section>
+          <section id="tall">
+            <div class="cell-wrap">
+              <div class="jp-Cell jp-MarkdownCell">
+                <div class="jp-RenderedMarkdown">
+                  <h1>Tall slide</h1>
+                  <p id="tallbody"></p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <!-- Slide 3: wide code — tests no horizontal clip + left alignment (Bug A) -->
+        <section>
+          <section>
+            <div class="cell-wrap">
+              <div class="jp-Cell jp-CodeCell">
+                <div class="jp-Editor cm-editor"><pre>std::map&lt;std::string, std::vector&lt;int&gt;&gt; m = {{"alpha", {1,2,3}}, {"beta", {4,5,6,7,8,9,10,11,12}}};  // a deliberately very long line to test horizontal handling</pre></div>
+                <div class="jp-OutputArea jp-RenderedText"><pre>alpha -&gt; 1 2 3
+beta  -&gt; 4 5 6 7 8 9 10 11 12</pre></div>
+              </div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js"></script>
+    <script>
+      // Fill the tall slide with lots of lines.
+      document.getElementById('tallbody').innerHTML =
+        Array.from({ length: 60 }, (_, i) => 'Line ' + (i + 1) + ' — content that overflows the viewport vertically.').join('<br>');
+
+      // Init reveal EXACTLY like the extension does.
+      Reveal.initialize({ disableLayout: true, transition: 'slide' });
+
+      function setZoom(z) { document.documentElement.style.zoom = z; }
+
+      function curSection() {
+        return document.querySelector('.reveal .slides section.present section.present')
+            || document.querySelector('.reveal .slides section.present');
+      }
+
+      function approx(a, b, tol) { return Math.abs(a - b) <= (tol || 2); }
+
+      function centeringCheck() {
+        Reveal.slide(0); // title slide
+        const sec = curSection();
+        const h1 = sec.querySelector('h1');
+        const sr = sec.getBoundingClientRect(), hr = h1.getBoundingClientRect();
+        const dxLeft = (hr.left - sr.left), dxRight = (sr.right - hr.right);
+        const dyTop = (hr.top - sr.top), dyBottom = (sr.bottom - hr.bottom);
+        const hCentered = approx(dxLeft, dxRight, 4);
+        const vCentered = approx(dyTop, dyBottom, 20); // padding asymmetry tolerance
+        return { hCentered, vCentered, dxLeft: Math.round(dxLeft), dxRight: Math.round(dxRight) };
+      }
+
+      function fastScrollTest() {
+        Reveal.slide(1); // tall slide
+        const sec = curSection();
+        // Simulate a violent flick well past the end.
+        sec.scrollTop = sec.scrollHeight + 5000;
+        // Browser must clamp to the real max; content bottom must sit at viewport bottom (no blank).
+        const max = sec.scrollHeight - sec.clientHeight;
+        const clamped = approx(sec.scrollTop, max, 2);
+        const lastChild = sec.querySelector('.cell-wrap');
+        const lr = lastChild.getBoundingClientRect(), sr = sec.getBoundingClientRect();
+        const gapBelow = sr.bottom - lr.bottom; // should be ~ padding, NOT a big blank gap
+        const noBlank = gapBelow < sr.height * 0.25;
+        const v = document.getElementById('verdict');
+        v.innerHTML =
+          'FAST-SCROLL (Bug B): scrollTop clamped=' + (clamped ? '<span class="ok">PASS</span>' : '<span class="bad">FAIL</span>') +
+          '\n  scrollTop=' + Math.round(sec.scrollTop) + ' max=' + Math.round(max) +
+          '\n  gap below last cell=' + Math.round(gapBelow) + 'px  noBlankSpace=' +
+          (noBlank ? '<span class="ok">PASS</span>' : '<span class="bad">FAIL</span>');
+        return { clamped, noBlank };
+      }
+
+      function runAll() {
+        const results = [];
+        [0.5, 1, 1.5, 2].forEach(z => {
+          setZoom(z);
+          const c = centeringCheck();
+          results.push('zoom ' + (z*100) + '%: H-centered=' + (c.hCentered ? 'PASS' : 'FAIL') +
+            ' (L' + c.dxLeft + '/R' + c.dxRight + ')  V-centered=' + (c.vCentered ? 'PASS' : 'FAIL'));
+        });
+        setZoom(1);
+        const fs = fastScrollTest();
+        const v = document.getElementById('verdict');
+        v.innerHTML = 'CENTERING (Bug A) across zoom:\n' +
+          results.map(r => r.replace(/PASS/g,'<span class="ok">PASS</span>').replace(/FAIL/g,'<span class="bad">FAIL</span>')).join('\n') +
+          '\n\nFAST-SCROLL (Bug B): clamp=' + (fs.clamped?'<span class="ok">PASS</span>':'<span class="bad">FAIL</span>') +
+          ' noBlank=' + (fs.noBlank?'<span class="ok">PASS</span>':'<span class="bad">FAIL</span>');
+        Reveal.slide(0);
+      }
+    </script>
+  </body>
+</html>

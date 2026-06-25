@@ -11,7 +11,12 @@
 
 'use strict';
 
-import { SVG } from '@svgdotjs/svg.js';
+// svg.js 3.x exports the element classes as separate named exports; they are
+// NOT attached to the `SVG` factory function the way svg.js 2.x exposed them.
+// The upstream Rajgoel plugin still calls `new SVG.Timeline()`, which throws
+// "SVG.Timeline is not a constructor" on svg.js 3 and breaks every animation.
+// Import Timeline directly and use it below (see `new Timeline()`).
+import { SVG, Timeline } from '@svgdotjs/svg.js';
 
 window.RevealAnimate = window.RevealAnimate || {
   id: 'RevealAnimate',
@@ -110,7 +115,12 @@ const initAnimate = function (Reveal) {
     // console.warn('setupAnimations', container, config);
     container.setAttribute('data-animation-index', index);
     animatedSVGs.push({
-      svg: [...container.querySelectorAll('svg')].map(svg => SVG(svg))
+      svg: [...container.querySelectorAll('svg')].map(svg => SVG(svg)),
+      // Opt-in looping: set "loop": true in the animation config to make the
+      // animation restart from the beginning when it finishes (used by the demo
+      // for a more appealing continuous loop). Defaults off, so normal lecture
+      // slides keep the manual fragment-by-fragment behaviour.
+      loop: !!(config && config.loop)
     });
     // console.log(animatedSVGs);
     if (!config) return;
@@ -184,7 +194,7 @@ const initAnimate = function (Reveal) {
       //console.warn(animatedSVGs[index].svg.node.getAttribute("style"));
     }
 
-    animatedSVGs[index].animation = new SVG.Timeline().persist(true);
+    animatedSVGs[index].animation = new Timeline().persist(true);
     animatedSVGs[index].animationSchedule = []; // completion time of each fragment animation
 
     // setup animation
@@ -339,10 +349,34 @@ const initAnimate = function (Reveal) {
         var timeout =
           animatedSVGs[index].animationSchedule[fragment].end -
           animatedSVGs[index].animation.time();
-        timer = setTimeout(pause, timeout);
+        // When this SVG is configured to loop and we're at its final fragment,
+        // restart from the beginning instead of pausing at the end.
+        var isLastFragment =
+          fragment >= animatedSVGs[index].animationSchedule.length - 1;
+        if (animatedSVGs[index].loop && isLastFragment) {
+          timer = setTimeout(loopRestart, timeout);
+        } else {
+          timer = setTimeout(pause, timeout);
+        }
       }
       //console.log("Auto pause",animatedSVGs[index], timeout);
     }
+  }
+
+  // Restart looping animations on the current slide from time 0 and keep
+  // playing. play() re-arms autoPause(), which re-arms this restart, so the
+  // animation cycles continuously until the slide changes.
+  function loopRestart() {
+    var elements = Reveal.getCurrentSlide().querySelectorAll('[data-animate]');
+    for (var i = 0; i < elements.length; i++) {
+      const index = elements[i].getAttribute('data-animation-index');
+      if (animatedSVGs[index].animation && animatedSVGs[index].loop) {
+        animatedSVGs[index].animation.time(
+          animatedSVGs[index].animationSchedule[0].begin || 0
+        );
+      }
+    }
+    play();
   }
 
   function seek(timestamp) {

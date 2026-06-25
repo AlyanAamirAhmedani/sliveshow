@@ -17,11 +17,12 @@
    Alyan Ahmedani — Slideshow Bug Fixes
    ============================================ */
 
-/* Fix 1 & 3: slides scrollable, content not clipped, no extra padding */
+/* Fix 1 & 3: slides scrollable, content not clipped, no extra padding.
+   `overflow-y: auto` (not `hidden scroll`) so the scrollbar only appears when
+   the slide actually overflows — matches the reworked layout block below. */
 .reveal .slides > section.present {
-  overflow: hidden scroll !important;
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
+  overflow: hidden auto !important;
+  overscroll-behavior: contain !important;
 }
 
 /* Fix 2: outputs not clipped */
@@ -50,23 +51,51 @@
   z-index: 9999 !important;
 }
 
-/* Fix 7 (A1): Reveal's auto-layout is disabled (so browser zoom works), so we
-   center and size slides ourselves. The slides container fills the viewport
-   with no transform; each visible slide is a flex column centered vertically
-   and horizontally. `safe center` keeps tall content scrollable from the top
-   instead of clipping it off-screen. */
+/* Fix 7 (A1 + A2, reworked 0.1.6): Reveal's auto-layout is disabled
+   (disableLayout: true), so reveal applies NO transform/scaling and we own the
+   layout. Two rules from 0.1.5 were the source of the remaining zoom + scroll
+   bugs Prof. Chan reported:
+
+   1. ZOOM (Bug A): under hard browser zoom the title/content drifted off-centre
+      (and tall cells clipped). The cause was horizontal alignment, NOT the width
+      unit: 0.1.5 set `text-align: left` on full-width slides, so short prose like
+      a title hugged the left edge and looked progressively more off-centre as
+      zoom reflowed the wrap. FIX: `text-align: center` for prose + a
+      `text-align: left` override for code/editor/output/pre/table, so titles
+      stay centred at any zoom while code stays left.
+      NB: width stays `100vw` (NOT `100%`) on purpose — `.reveal`'s parent is only
+      ~1250px wide even in fullscreen, so `100%` clips wide content and pushes it
+      off-centre on wide screens (regression noted in 0.1.5). `100vw` = the full
+      screen width, which is what we want here.
+
+   2. SCROLL (Bug B): `justify-content: safe center` keeps free space inside the
+      scroll container, so a fast flick + momentum / rubber-band could leave the
+      content scrolled up into that empty gap (the "unusable blank space").
+      Replaced with flexible `::before`/`::after` spacers (`margin: auto`): they
+      centre content when it fits and collapse to zero when it overflows, so the
+      slide top-aligns and scrolls cleanly from the top with no phantom space
+      and no top-clipping. `overscroll-behavior: contain` kills the rubber-band
+      overshoot/scroll-chaining that caused the overshoot in the first place. */
+
 .reveal {
+  width: 100vw !important;
+  height: 100% !important;
   max-width: 100vw !important;
-  overflow-x: hidden !important;
+  overflow: hidden !important;
 }
 
 .reveal .slides {
+  position: absolute !important;
   inset: 0 !important;
   width: 100vw !important;
   max-width: 100vw !important;
   height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
   transform: none !important;
-  text-align: left;
+
+  /* centre prose horizontally; code/output overridden to left below */
+  text-align: center;
 }
 
 .reveal .slides > section,
@@ -74,18 +103,35 @@
   width: 100vw !important;
   max-width: 100vw !important;
   height: 100% !important;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
+  padding: 3% 4% !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: safe center !important;
   align-items: center !important;
+
+  /* stop momentum/rubber-band overshoot and scroll-chaining (Bug B) */
+  overflow: hidden auto !important;
+  overscroll-behavior: contain !important;
+  transform: none !important;
 }
 
-/* Cap slide content to the viewport width so long lines wrap instead of
-   overflowing horizontally (which got clipped at high zoom). The key is
-   `min-width: 0`: flex items default to `min-width: auto`, which refuses to
-   shrink below the content's intrinsic width, so text never wrapped. Setting
-   it to 0 lets the content wrap; tall content then scrolls vertically. */
+/* Flexible vertical spacers replace `justify-content: center`. With zero
+   intrinsic size and `margin: auto`, they share the free space equally when
+   content fits (=> vertically centred) and collapse to 0 when content
+   overflows (=> top-aligned, fully scrollable, never clipped at the top). */
+.reveal .slides > section::before,
+.reveal .slides > section::after,
+.reveal .slides > section > section::before,
+.reveal .slides > section > section::after {
+  content: '';
+  flex: 0 0 auto;
+  margin: auto 0;
+}
+
+/* Cap slide content to the slide width so long lines wrap instead of
+   overflowing horizontally (which got clipped at high zoom). `min-width: 0`
+   overrides the flex default of `min-width: auto`, which otherwise refuses to
+   shrink below the content's intrinsic width and breaks wrapping. */
 /* stylelint-disable no-descending-specificity */
 .reveal .slides > section > *,
 .reveal .slides > section > section > *,
@@ -98,16 +144,28 @@
 }
 /* stylelint-enable no-descending-specificity */
 
-/* keep the vertical scroll on the visible slide */
-.reveal .slides > section.present,
-.reveal .slides > section > section.present {
-  overflow: hidden scroll !important;
+/* Keep code, editor content, text output and tables left-aligned even though
+   prose (titles/markdown) is centred by the slides rule above. */
+/* stylelint-disable no-descending-specificity */
+.reveal .slides .jp-Editor,
+.reveal .slides .cm-editor,
+.reveal .slides .jp-RenderedText,
+.reveal .slides .jp-OutputArea,
+.reveal .slides pre,
+.reveal .slides table {
+  text-align: left !important;
 }
+/* stylelint-enable no-descending-specificity */
 
-/* Hide notebook cell chrome (toolbar, prompts) inside the slideshow */
+/* Hide notebook cell chrome (toolbar, prompts) inside the slideshow.
+   Also hide the jupyterlab-execute-time "Last executed at … in Xms" footer
+   (class `execute-time` on older builds, `jp-ExecuteTime` on newer) for a
+   cleaner lecture look. */
 .reveal .slides .jp-cell-toolbar,
 .reveal .slides .jp-CellToolbar,
 .reveal .slides .jp-InputPrompt,
-.reveal .slides .jp-OutputPrompt {
+.reveal .slides .jp-OutputPrompt,
+.reveal .slides .execute-time,
+.reveal .slides .jp-ExecuteTime {
   display: none !important;
 }

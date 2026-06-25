@@ -11,7 +11,7 @@ pip install sliveshow
 ```
 
 **PyPI:** https://pypi.org/project/sliveshow/  
-**Demo:** https://ltshum.github.io/jupyterlite/lab/index.html  
+**Demo:** https://alyanaamirahmedani.github.io/sliveshow/lab/index.html?path=sliveshow_demo.ipynb  
 _(Run all cells before starting the slideshow to display animations correctly.)_
 
 ---
@@ -40,21 +40,21 @@ pip uninstall sliveshow
 
 The slideshow uses the [Reveal.js](https://revealjs.com/) framework. Set the slide type of each cell via **COMMON TOOLS > Slide Type**. Available types: **Slide**, **Sub-Slide**, **Fragment**, **Skip**.
 
-![Slide type panel](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/common_tools.png?raw=true)
+![Slide type panel](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/common_tools.png?raw=true)
 
 Transition type and duration are set per-cell in **SLIDESHOW TOOLS**. Available types: **Slide**, **Fade**, **Zoom**. The default can be changed in Settings.
 
 For **Slide** transitions, direction is **Horizontal** (Slides) or **Vertical** (Sub-Slides) by default.
 
-![Transition settings](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/transition.png?raw=true)
+![Transition settings](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/transition.png?raw=true)
 
 Code cell input can be hidden via **Hide Code Cell**, showing only the output.
 
-![Hide code cell](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/code_cell.png?raw=true)
+![Hide code cell](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/code_cell.png?raw=true)
 
 To start a slideshow, use the **Slideshow** menu → **Start from first cell** or **Start from current cell**. To exit, press Escape or use **Exit slideshow**.
 
-![Start slideshow](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/start_slideshow.png?raw=true)
+![Start slideshow](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/start_slideshow.png?raw=true)
 
 ---
 
@@ -114,11 +114,11 @@ project:
 
 The `svg-animate.mjs` plugin file is included in the `Demo/` folder.
 
-![SVG animation](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/SVG.png?raw=true)
+![SVG animation](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/SVG.png?raw=true)
 
 The JSON config controls the animation. `setup` runs on load; `animation` runs per fragment. See the [Animate plugin README](https://github.com/rajgoel/reveal.js-plugins/blob/master/animate/README.md) for full options.
 
-![SVG animation config](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/SVG_anim.png?raw=true)
+![SVG animation config](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/SVG_anim.png?raw=true)
 
 ---
 
@@ -126,7 +126,7 @@ The JSON config controls the animation. `setup` runs on load; `animation` runs p
 
 MathJax 4 converts math expressions into SVG, which can be animated. Select components with `g[data-latex='x']`, shortened to `mj['x']`.
 
-![MathJax](https://github.com/ltshum/fyp-custom-slideshow/blob/main/Demo/mathjax.png?raw=true)
+![MathJax](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/mathjax.png?raw=true)
 
 ---
 

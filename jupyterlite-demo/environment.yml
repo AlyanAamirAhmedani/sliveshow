@@ -1,0 +1,12 @@
+# xeus-python kernel for the JupyterLite demo.
+# Unlike pyodide, xeus lets us PRE-INSTALL packages into the kernel, so
+# anything listed here is available in the browser with no pip step.
+# Packages come from the emscripten-forge channel (WASM builds).
+name: xeus-python-kernel
+channels:
+  - https://repo.mamba.pm/emscripten-forge
+  - conda-forge
+dependencies:
+  - xeus-python
+  - numpy
+  - matplotlib

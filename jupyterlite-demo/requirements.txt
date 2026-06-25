@@ -1,0 +1,13 @@
+# Build environment for the JupyterLite demo site.
+# These are installed in CI; `jupyter lite build` then bundles the
+# `sliveshow` labextension (picked up automatically from the env) and
+# builds a xeus-python kernel from environment.yml.
+#
+# NOTE: JupyterLite's version matrix is strict. If the first CI build
+# fails on a version conflict, pin these to a known-compatible set
+# (the build log will name the conflict). Starting point:
+jupyterlite-core>=0.6,<0.7
+jupyterlite-xeus>=4,<5
+jupyterlab>=4.4,<5
+notebook>=7.4,<8
+sliveshow>=0.1.7
