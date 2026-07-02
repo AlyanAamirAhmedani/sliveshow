@@ -2,7 +2,7 @@
 
 [![Github Actions Status](https://github.com/AlyanAamirAhmedani/sliveshow/workflows/Build/badge.svg)](https://github.com/AlyanAamirAhmedani/sliveshow/actions/workflows/build.yml)
 
-A JupyterLab extension that turns Jupyter notebooks into live, animated Reveal.js slideshows — with scrollable slides, SVG animations, and MyST directive support for Jupyter Book 2.
+A JupyterLab extension that turns Jupyter notebooks into live, animated Reveal.js slideshows — with scrollable slides, SVG and math (MathJax 4) animations that also play in the normal notebook view, and MyST directive support for Jupyter Book 2.
 
 **Install:**
 
@@ -122,11 +122,49 @@ The JSON config controls the animation. `setup` runs on load; `animation` runs p
 
 ---
 
-### MathJax SVG
+### Animations in the notebook view
 
-MathJax 4 converts math expressions into SVG, which can be animated. Select components with `g[data-latex='x']`, shortened to `mj['x']`.
+Since 0.1.8, the same `data-animate` / `{svg-animate}` cells **also animate in the normal notebook view** — no slideshow required. One source, works in both.
+
+- Animations autoplay when the cell scrolls into view, and **double-click replays** them.
+- `"loop": true` in the config makes the animation cycle continuously (notebook and slideshow).
+- In the notebook, Reveal fragments don't exist, so all `animation` stages play back-to-back on one timeline.
+- Tip: keep one animation block per markdown cell. Text before/after the block in the same cell is preserved.
+
+---
+
+### Animating math (MathJax 4)
+
+sliveshow replaces JupyterLab's default math renderer with **MathJax 4 SVG output**, so every formula in a markdown cell is an SVG that can be animated like any other — in the slideshow **and** in the notebook view.
+
+Select formula parts either by their TeX source via `g[data-latex='x']` (shortened to `mj['x']`), or tag them explicitly with `\class{name}{...}` / `\cssId{id}{...}` and select with `.name` / `#id`:
+
+```markdown
+## The Gaussian integral
+
+<div data-animate>
+
+$$\class{lhs}{\int_{0}^{\infty} e^{-x^2}\,dx} = \class{rhs}{\frac{\sqrt{\pi}}{2}}$$
+
+<!--
+{
+  "animation": [
+    { "element": ".lhs", "modifier": "opacity", "parameters": [0.15], "duration": 600 },
+    { "element": ".lhs", "modifier": "opacity", "parameters": [1], "duration": 600 },
+    { "element": ".rhs", "modifier": "opacity", "parameters": [0.15], "duration": 600 },
+    { "element": ".rhs", "modifier": "opacity", "parameters": [1], "duration": 600 }
+  ],
+  "loop": true
+}
+-->
+</div>
+```
+
+Math inside a `data-animate` block is typeset by MathJax 4 when the block is injected (both in the notebook and when the slideshow starts).
 
 ![MathJax](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/mathjax.png?raw=true)
+
+> **Note:** sliveshow disables the built-in `@jupyterlab/mathjax-extension` (MathJax 3) while installed, so its MathJax 4 SVG typesetter is the one JupyterLab uses. Uninstalling sliveshow restores the default renderer.
 
 ---
 

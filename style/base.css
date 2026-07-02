@@ -169,3 +169,19 @@
 .reveal .slides .jp-ExecuteTime {
   display: none !important;
 }
+
+/* ============================================
+   In-notebook animations (0.1.8)
+   ============================================ */
+
+/* Container injected into rendered markdown cells for data-animate /
+   {svg-animate} blocks (see src/notebookAnimate.ts). Centre the animation
+   and keep it inside the cell width; double-click replays it. */
+.sliveshow-notebook-animation {
+  text-align: center;
+}
+
+.sliveshow-notebook-animation svg {
+  max-width: 100%;
+  height: auto;
+}

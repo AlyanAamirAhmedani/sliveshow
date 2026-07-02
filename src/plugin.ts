@@ -1,5 +1,6 @@
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
+import { ILatexTypesetter } from '@jupyterlab/rendermime';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { PLUGIN_ID, SlideType, Transition } from './constants';
 import { Cell, Slide, Subslide, Fragment } from './slideType';
@@ -13,7 +14,8 @@ declare const window: any;
 const plugin = (
   app: JupyterFrontEnd,
   tracker: INotebookTracker,
-  settings: ISettingRegistry
+  settings: ISettingRegistry,
+  typesetter: ILatexTypesetter | null = null
 ) => {
   const { commands } = app;
   // console.log('App:');
@@ -238,6 +240,23 @@ const plugin = (
             revealContainer,
             panel.content.node.firstChild
           );
+          // Typeset math inside injected animation blocks. Their content was
+          // re-read from the raw cell source (sanitizer bypass), so MathJax
+          // has never seen it. The MathJax 4 typesetter outputs SVG carrying
+          // data-latex attributes (and \class/\cssId names), which the
+          // Animate plugin targets via mj[...] / CSS selectors — this is what
+          // makes math animation work in a plain markdown cell. Must happen
+          // after the container is in the DOM (font metrics) and before
+          // Reveal initializes the Animate plugin.
+          if (typesetter) {
+            revealSlides.querySelectorAll('[data-animate]').forEach(el => {
+              try {
+                typesetter.typeset(el as HTMLElement);
+              } catch (e) {
+                console.warn('sliveshow: MathJax typeset failed:', e);
+              }
+            });
+          }
           reveal = new Reveal(revealContainer, {
             // @ts-expect-error: required for Animate plugin to work
             animate: {
