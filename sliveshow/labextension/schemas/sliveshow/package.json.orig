@@ -1,6 +1,6 @@
 {
     "name": "sliveshow",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "description": "JupyterLab extension for animated slideshow.",
     "keywords": [
         "jupyter",
@@ -102,7 +102,10 @@
     "jupyterlab": {
         "extension": true,
         "outputDir": "sliveshow/labextension",
-        "schemaDir": "schema"
+        "schemaDir": "schema",
+        "disabledExtensions": [
+            "@jupyterlab/mathjax-extension"
+        ]
     },
     "eslintIgnore": [
         "node_modules",
