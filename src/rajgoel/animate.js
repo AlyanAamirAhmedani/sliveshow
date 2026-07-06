@@ -291,7 +291,8 @@ const initAnimate = function (Reveal) {
     // (src/notebookAnimate.ts), and other open notebooks keep their cells in
     // the DOM — grabbing those here would let two drivers fight over the
     // same SVGs.
-    var elements = Reveal.getRevealElement().querySelectorAll('[data-animate]');
+    var elements =
+      Reveal.getRevealElement().querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
       if (elements[i].hasAttribute('data-src')) {
         console.error(
@@ -568,11 +569,18 @@ console.log('resumed ');
   // reset animation upon exiting slideshow
   document.addEventListener('fullscreenchange', function (event) {
     // scoped to the deck for the same reason as initialize()
-    var elements = Reveal.getRevealElement().querySelectorAll('[data-animate]');
+    var elements =
+      Reveal.getRevealElement().querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
       if (animatedSVGs[i].animation && animatedSVGs[i].animationSchedule) {
         animatedSVGs[i].animation.stop();
       }
+    }
+    if (document.fullscreenElement) {
+      // Entering fullscreen (slideshow start): the stop() above also kills
+      // the CURRENT slide's autoplaying animation, and no slidechanged event
+      // will restart it (e.g. "Start from current cell"). Re-animate.
+      animateSlide(0);
     }
   });
 

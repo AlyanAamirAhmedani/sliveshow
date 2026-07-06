@@ -33,7 +33,18 @@ export class MathJax4Typesetter implements ILatexTypesetter {
     });
     this._html = mathjax.document(window.document, {
       InputJax: tex,
-      OutputJax: svg
+      OutputJax: svg,
+      // The Safe handler strips class/id attributes that don't match mjx-*
+      // by default, which silently removes the \class{...} / \cssId{...}
+      // tags used to select formula parts for animation. Allow them.
+      safeOptions: {
+        allow: {
+          URLs: 'safe',
+          classes: 'all',
+          cssIDs: 'all',
+          styles: 'safe'
+        }
+      }
     });
   }
 
@@ -54,7 +65,12 @@ const plugin: JupyterFrontEndPlugin<ILatexTypesetter> = {
   description: 'MathJax 4 typesetter',
   requires: [],
   provides: ILatexTypesetter,
-  activate: () => new MathJax4Typesetter(),
+  activate: () => {
+    // Diagnostic logging for 0.1.9: if this line never appears, the
+    // typesetter was not requested/activated (token dedup problem).
+    console.log('sliveshow: MathJax 4 typesetter registered');
+    return new MathJax4Typesetter();
+  },
   autoStart: true
 };
 

@@ -24,6 +24,11 @@ import { PLUGIN_ID } from './constants';
 
 const ANIMATION_CLASS = 'sliveshow-notebook-animation';
 
+// Diagnostic logging for 0.1.9 — remove/quiet once stable.
+const log = (...args: any[]): void => {
+  console.log('sliveshow-nb:', ...args);
+};
+
 /**
  * Extract the animation block from raw markdown source as a detached
  * `<div data-animate>` element. Mirrors the two branches of
@@ -79,7 +84,8 @@ const findSanitizedLeftover = (rendered: HTMLElement): Element | null => {
 
 const plugin: JupyterFrontEndPlugin<void> = {
   id: `${PLUGIN_ID}:notebook-animate`,
-  description: 'Renders sliveshow SVG/MathJax animations in the notebook view.',
+  description:
+    'Renders sliveshow SVG/MathJax animations in the notebook view.',
   autoStart: true,
   requires: [INotebookTracker],
   optional: [ILatexTypesetter],
@@ -88,85 +94,130 @@ const plugin: JupyterFrontEndPlugin<void> = {
     tracker: INotebookTracker,
     typesetter: ILatexTypesetter | null
   ) => {
+    log('activated; typesetter available:', !!typesetter);
+
     // per-cell animation handles / visibility observers / hook guards
     const handles = new WeakMap<any, any>();
     const observers = new WeakMap<any, IntersectionObserver>();
     const hooked = new WeakSet<any>();
 
     const disposeHandle = (cell: any): void => {
-      handles.get(cell)?.dispose();
+      const entry = handles.get(cell);
+      entry?.watchdog?.disconnect();
+      entry?.handle?.dispose();
       handles.delete(cell);
     };
 
     const process = (cell: any, attempt: number = 0): void => {
-      disposeHandle(cell);
-      if (cell.isDisposed || !cell.rendered) {
-        return;
-      }
-      const rendered = cell.node.querySelector(
-        '.jp-RenderedMarkdown'
-      ) as HTMLElement | null;
-      if (!rendered) {
-        // renderer output not in the DOM yet — retry briefly
-        if (attempt < 10) {
-          setTimeout(() => process(cell, attempt + 1), 200);
-        }
-        return;
-      }
-      // remove a previous injection (e.g. cell was re-rendered)
-      rendered
-        .querySelectorAll(`.${ANIMATION_CLASS}`)
-        .forEach(el => el.remove());
-
-      const src: string = cell.model?.sharedModel?.getSource() ?? '';
-      const animDiv = extractAnimateDiv(src);
-      if (!animDiv) {
-        return;
-      }
-
-      const container = document.createElement('div');
-      container.classList.add(ANIMATION_CLASS);
-      container.title = 'Double-click to replay the animation';
-      container.appendChild(animDiv);
-
-      // Swap the sanitized leftovers for the live animation block, keeping
-      // the rest of the cell (headings, prose) intact.
-      const leftover = findSanitizedLeftover(rendered);
-      if (leftover) {
-        leftover.replaceWith(container);
-      } else {
-        rendered.appendChild(container);
-      }
-      // drop stray closing ':::' paragraphs from the directive syntax
-      rendered.querySelectorAll('p').forEach(p => {
-        if ((p.textContent || '').trim() === ':::') {
-          p.remove();
-        }
-      });
-
-      // Math inside the injected block was never seen by the markdown
-      // renderer, so typeset it now. With the MathJax 4 typesetter this
-      // yields SVG with data-latex attributes, so animation configs can
-      // target formula parts via mj[...] / \class / \cssId selectors.
-      if (typesetter) {
-        try {
-          typesetter.typeset(container);
-        } catch (e) {
-          console.warn('sliveshow: MathJax typeset failed:', e);
-        }
-      }
-
-      // dynamic import keeps svg.js out of the critical startup path
-      // (same pattern as the Reveal plugins in plugin.ts)
-      import('./rajgoel/animateStandalone.js').then((mod: any) => {
-        if (cell.isDisposed || !animDiv.isConnected) {
+      try {
+        disposeHandle(cell);
+        if (cell.isDisposed || !cell.rendered) {
+          log('process: cell disposed or unrendered, skipping');
           return;
         }
-        const handle = mod.animateContainer(animDiv);
-        if (handle) {
-          handles.set(cell, handle);
+        const rendered = cell.node.querySelector(
+          '.jp-RenderedMarkdown'
+        ) as HTMLElement | null;
+        if (!rendered) {
+          // renderer output not in the DOM yet — retry briefly
+          if (attempt < 25) {
+            setTimeout(() => process(cell, attempt + 1), 200);
+          } else {
+            log('process: gave up waiting for .jp-RenderedMarkdown');
+          }
+          return;
         }
-      });
+        // remove a previous injection (e.g. cell was re-rendered)
+        rendered
+          .querySelectorAll(`.${ANIMATION_CLASS}`)
+          .forEach(el => el.remove());
+
+        const src: string = cell.model?.sharedModel?.getSource() ?? '';
+        const animDiv = extractAnimateDiv(src);
+        if (!animDiv) {
+          return;
+        }
+        log('process: injecting animation block (attempt', attempt + ')');
+
+        const container = document.createElement('div');
+        container.classList.add(ANIMATION_CLASS);
+        container.title = 'Double-click to replay the animation';
+        container.appendChild(animDiv);
+
+        // Swap the sanitized leftovers for the live animation block, keeping
+        // the rest of the cell (headings, prose) intact.
+        const leftover = findSanitizedLeftover(rendered);
+        if (leftover) {
+          leftover.replaceWith(container);
+        } else {
+          rendered.appendChild(container);
+        }
+        // drop stray closing ':::' paragraphs from the directive syntax
+        rendered.querySelectorAll('p').forEach(p => {
+          if ((p.textContent || '').trim() === ':::') {
+            p.remove();
+          }
+        });
+
+        // Math inside the injected block was never seen by the markdown
+        // renderer, so typeset it now. With the MathJax 4 typesetter this
+        // yields SVG with data-latex attributes, so animation configs can
+        // target formula parts via mj[...] / \class / \cssId selectors.
+        if (typesetter) {
+          try {
+            typesetter.typeset(container);
+          } catch (e) {
+            console.warn('sliveshow-nb: MathJax typeset failed:', e);
+          }
+        }
+
+        // dynamic import keeps svg.js out of the critical startup path
+        // (same pattern as the Reveal plugins in plugin.ts)
+        import('./rajgoel/animateStandalone.js')
+          .then((mod: any) => {
+            if (cell.isDisposed || !cell.rendered) {
+              return;
+            }
+            if (!animDiv.isConnected) {
+              // JupyterLab re-renders markdown cells shortly after startup,
+              // which wipes the injection between injecting and the driver
+              // chunk loading — re-inject and try again.
+              log('animate: injection wiped by re-render, retrying');
+              if (attempt < 25) {
+                setTimeout(() => process(cell, attempt + 1), 300);
+              }
+              return;
+            }
+            const handle = mod.animateContainer(animDiv);
+            log('animate: driver started:', !!handle);
+            // Watchdog: if a later re-render removes the injected block,
+            // re-inject so the animation survives edits/re-typesetting.
+            const watchdog = new MutationObserver(() => {
+              if (!container.isConnected) {
+                watchdog.disconnect();
+                if (cell.isDisposed || !cell.rendered) {
+                  return;
+                }
+                if (cell.node.isConnected) {
+                  log('watchdog: injection removed, re-injecting');
+                  process(cell);
+                } else {
+                  // the whole cell left the DOM (windowing/slideshow);
+                  // re-inject when it becomes visible again
+                  disposeHandle(cell);
+                  scheduleProcess(cell);
+                }
+              }
+            });
+            watchdog.observe(cell.node, { childList: true, subtree: true });
+            handles.set(cell, { handle, watchdog });
+          })
+          .catch((e: any) => {
+            console.error('sliveshow-nb: failed to load animation driver:', e);
+          });
+      } catch (e) {
+        console.error('sliveshow-nb: process failed:', e);
+      }
     };
 
     // Defer processing until the cell is actually in the DOM and visible:
@@ -180,6 +231,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         process(cell);
         return;
       }
+      log('schedule: cell detached, waiting for visibility');
       const observer = new IntersectionObserver(entries => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
@@ -195,26 +247,36 @@ const plugin: JupyterFrontEndPlugin<void> = {
     };
 
     const hookCell = (cell: any): void => {
-      if (cell?.model?.type !== 'markdown' || hooked.has(cell)) {
-        return;
+      try {
+        if (cell?.model?.type !== 'markdown' || hooked.has(cell)) {
+          return;
+        }
+        hooked.add(cell);
+        const src: string = cell.model?.sharedModel?.getSource() ?? '';
+        if (src.includes('data-animate') || src.includes(':::{svg-animate}')) {
+          log('hooked animated markdown cell; rendered:', cell.rendered);
+        }
+        cell.renderedChanged?.connect(() => {
+          if (cell.rendered) {
+            scheduleProcess(cell);
+          } else {
+            disposeHandle(cell);
+          }
+        });
+        void Promise.resolve(cell.ready).then(() => {
+          if (!cell.isDisposed && cell.rendered) {
+            scheduleProcess(cell);
+          }
+        });
+      } catch (e) {
+        console.error('sliveshow-nb: hookCell failed:', e);
       }
-      hooked.add(cell);
-      cell.renderedChanged?.connect(() => {
-        if (cell.rendered) {
-          scheduleProcess(cell);
-        } else {
-          disposeHandle(cell);
-        }
-      });
-      void Promise.resolve(cell.ready).then(() => {
-        if (!cell.isDisposed && cell.rendered) {
-          scheduleProcess(cell);
-        }
-      });
     };
 
     const hookPanel = (panel: NotebookPanel): void => {
       void panel.context.ready.then(() => {
+        log('hooking panel:', panel.context.path, '— cells:',
+          panel.content.widgets.length);
         panel.content.widgets.forEach(hookCell);
         panel.model?.cells.changed.connect(() => {
           // widgets for newly added cells exist by the next frame
