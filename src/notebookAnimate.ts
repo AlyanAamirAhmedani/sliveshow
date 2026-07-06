@@ -84,8 +84,7 @@ const findSanitizedLeftover = (rendered: HTMLElement): Element | null => {
 
 const plugin: JupyterFrontEndPlugin<void> = {
   id: `${PLUGIN_ID}:notebook-animate`,
-  description:
-    'Renders sliveshow SVG/MathJax animations in the notebook view.',
+  description: 'Renders sliveshow SVG/MathJax animations in the notebook view.',
   autoStart: true,
   requires: [INotebookTracker],
   optional: [ILatexTypesetter],
@@ -275,8 +274,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     const hookPanel = (panel: NotebookPanel): void => {
       void panel.context.ready.then(() => {
-        log('hooking panel:', panel.context.path, '— cells:',
-          panel.content.widgets.length);
+        log(
+          'hooking panel:',
+          panel.context.path,
+          '— cells:',
+          panel.content.widgets.length
+        );
         panel.content.widgets.forEach(hookCell);
         panel.model?.cells.changed.connect(() => {
           // widgets for newly added cells exist by the next frame

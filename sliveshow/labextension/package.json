@@ -107,7 +107,7 @@
       "@jupyterlab/mathjax-extension"
     ],
     "_build": {
-      "load": "static/remoteEntry.42f3ed9ff4b76391dbbb.js",
+      "load": "static/remoteEntry.8c2c2d894cb3390f1850.js",
       "extension": "./extension",
       "style": "./style"
     }
