@@ -1,6 +1,6 @@
 {
     "name": "sliveshow",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "description": "JupyterLab extension for animated slideshow.",
     "keywords": [
         "jupyter",
@@ -57,16 +57,18 @@
         "watch:labextension": "jupyter labextension watch ."
     },
     "dependencies": {
-        "@jupyterlab/application": "^4.5.0",
-        "@jupyterlab/settingregistry": "^4.5.0",
+        "@jupyterlab/application": "^4.4.0",
+        "@jupyterlab/notebook": "^4.4.0",
+        "@jupyterlab/rendermime": "^4.4.0",
+        "@jupyterlab/settingregistry": "^4.4.0",
         "@mathjax/src": "4",
         "@svgdotjs/svg.js": "^3.2.5",
         "@types/reveal.js": "^5.2.2",
         "reveal.js": "^5.2.1"
     },
     "devDependencies": {
-        "@jupyterlab/builder": "^4.5.0",
-        "@jupyterlab/testutils": "^4.5.0",
+        "@jupyterlab/builder": "^4.0.0",
+        "@jupyterlab/testutils": "^4.0.0",
         "@types/jest": "^29.2.0",
         "@types/json-schema": "^7.0.11",
         "@types/react": "^18.0.26",
