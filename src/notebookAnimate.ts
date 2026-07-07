@@ -98,6 +98,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // per-cell animation handles / visibility observers / hook guards
     const handles = new WeakMap<any, any>();
     const observers = new WeakMap<any, IntersectionObserver>();
+    const waiters = new WeakMap<any, MutationObserver>();
     const hooked = new WeakSet<any>();
 
     const disposeHandle = (cell: any): void => {
@@ -105,6 +106,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
       entry?.watchdog?.disconnect();
       entry?.handle?.dispose();
       handles.delete(cell);
+      waiters.get(cell)?.disconnect();
+      waiters.delete(cell);
     };
 
     const process = (cell: any, attempt: number = 0): void => {
@@ -118,12 +121,25 @@ const plugin: JupyterFrontEndPlugin<void> = {
           '.jp-RenderedMarkdown'
         ) as HTMLElement | null;
         if (!rendered) {
-          // renderer output not in the DOM yet — retry briefly
-          if (attempt < 25) {
-            setTimeout(() => process(cell, attempt + 1), 200);
-          } else {
-            log('process: gave up waiting for .jp-RenderedMarkdown');
-          }
+          // Renderer output not in the DOM yet. On slow hosts (e.g. DIVE)
+          // this can take well over 5s, so don't poll with a deadline —
+          // watch the cell node and continue whenever the output appears.
+          log('process: waiting for .jp-RenderedMarkdown (observer)');
+          waiters.get(cell)?.disconnect();
+          const waiter = new MutationObserver(() => {
+            if (cell.isDisposed) {
+              waiter.disconnect();
+              waiters.delete(cell);
+              return;
+            }
+            if (cell.node.querySelector('.jp-RenderedMarkdown')) {
+              waiter.disconnect();
+              waiters.delete(cell);
+              process(cell, attempt + 1);
+            }
+          });
+          waiters.set(cell, waiter);
+          waiter.observe(cell.node, { childList: true, subtree: true });
           return;
         }
         // remove a previous injection (e.g. cell was re-rendered)
