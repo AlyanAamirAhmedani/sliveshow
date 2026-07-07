@@ -716,7 +716,7 @@
             "@types/reveal.js": {},
             "reveal.js": {},
             "sliveshow": {
-              "version": "0.1.10",
+              "version": "0.1.11",
               "singleton": true,
               "import": "/Users/alyan_ahmedani/sliveshow/lib/index.js"
             }

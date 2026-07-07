@@ -220,6 +220,11 @@ __webpack_require__.r(__webpack_exports__);
 
 
 const ANIMATION_CLASS = 'sliveshow-notebook-animation';
+// The rendered-markdown container differs by renderer: stock JupyterLab uses
+// `.jp-RenderedMarkdown`, while jupyterlab-myst (used on DIVE) renders into a
+// `.jp-RenderedHTMLCommon.not-prose` node without the markdown class. Both
+// share jp-RenderedHTMLCommon; keep the specific class first for stock Lab.
+const RENDERED_SELECTOR = '.jp-RenderedMarkdown, .jp-RenderedHTMLCommon';
 // Diagnostic logging for 0.1.9 — remove/quiet once stable.
 const log = (...args) => {
     console.log('sliveshow-nb:', ...args);
@@ -301,12 +306,12 @@ const plugin = {
                     log('process: cell disposed or unrendered, skipping');
                     return;
                 }
-                const rendered = cell.node.querySelector('.jp-RenderedMarkdown');
+                const rendered = cell.node.querySelector(RENDERED_SELECTOR);
                 if (!rendered) {
                     // Renderer output not in the DOM yet. On slow hosts (e.g. DIVE)
                     // this can take well over 5s, so don't poll with a deadline —
                     // watch the cell node and continue whenever the output appears.
-                    log('process: waiting for .jp-RenderedMarkdown (observer)');
+                    log('process: waiting for rendered markdown (observer)');
                     (_a = waiters.get(cell)) === null || _a === void 0 ? void 0 : _a.disconnect();
                     const waiter = new MutationObserver(() => {
                         if (cell.isDisposed) {
@@ -314,7 +319,7 @@ const plugin = {
                             waiters.delete(cell);
                             return;
                         }
-                        if (cell.node.querySelector('.jp-RenderedMarkdown')) {
+                        if (cell.node.querySelector(RENDERED_SELECTOR)) {
                             waiter.disconnect();
                             waiters.delete(cell);
                             process(cell, attempt + 1);
@@ -1119,4 +1124,4 @@ module.exports = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5v
 /***/ }
 
 }]);
-//# sourceMappingURL=lib_index_js-data_image_gif_base64_R0lGODlhIAAgAPMAAJmZmf_2F_2F_2F6_2Bvr8nJybW1tcDAwOjo6Nvb26-baaebe.d14913ab3b23c5d6b072.js.map
+//# sourceMappingURL=lib_index_js-data_image_gif_base64_R0lGODlhIAAgAPMAAJmZmf_2F_2F_2F6_2Bvr8nJybW1tcDAwOjo6Nvb26-baaebe.9e6c6d8aa7ed213df863.js.map
