@@ -160,9 +160,11 @@
 
 /* Animations stay centred within the content column: an SVG figure is a
    figure, not prose, so it should sit in the middle of the slide even though
-   the surrounding text is left-aligned. */
-.reveal .slides [data-animate],
-.reveal .slides .sliveshow-notebook-animation {
+   the surrounding text is left-aligned. (Notebook-injected animations carry
+   `.sliveshow-notebook-animation`, which is centred by its own rule further
+   down — a direct rule beats the inherited left alignment, so it needs no
+   slideshow-specific override.) */
+.reveal .slides [data-animate] {
   text-align: center;
 }
 
