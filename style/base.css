@@ -53,29 +53,20 @@
 
 /* Fix 7 (A1 + A2, reworked 0.1.6): Reveal's auto-layout is disabled
    (disableLayout: true), so reveal applies NO transform/scaling and we own the
-   layout. Two rules from 0.1.5 were the source of the remaining zoom + scroll
-   bugs Prof. Chan reported:
+   layout.
 
-   1. ZOOM (Bug A): under hard browser zoom the title/content drifted off-centre
-      (and tall cells clipped). The cause was horizontal alignment, NOT the width
-      unit: 0.1.5 set `text-align: left` on full-width slides, so short prose like
-      a title hugged the left edge and looked progressively more off-centre as
-      zoom reflowed the wrap. FIX: `text-align: center` for prose + a
-      `text-align: left` override for code/editor/output/pre/table, so titles
-      stay centred at any zoom while code stays left.
-      NB: width stays `100vw` (NOT `100%`) on purpose — `.reveal`'s parent is only
-      ~1250px wide even in fullscreen, so `100%` clips wide content and pushes it
-      off-centre on wide screens (regression noted in 0.1.5). `100vw` = the full
-      screen width, which is what we want here.
+   1. ZOOM (Bug A): under hard browser zoom the content drifted off-centre and
+      tall cells clipped. Sizing is done in `100vw` (NOT `100%`) because
+      `.reveal`'s parent is only ~1250px wide even in fullscreen, so `100%`
+      clips wide content on wide screens.
 
    2. SCROLL (Bug B): `justify-content: safe center` keeps free space inside the
-      scroll container, so a fast flick + momentum / rubber-band could leave the
-      content scrolled up into that empty gap (the "unusable blank space").
-      Replaced with flexible `::before`/`::after` spacers (`margin: auto`): they
-      centre content when it fits and collapse to zero when it overflows, so the
-      slide top-aligns and scrolls cleanly from the top with no phantom space
-      and no top-clipping. `overscroll-behavior: contain` kills the rubber-band
-      overshoot/scroll-chaining that caused the overshoot in the first place. */
+      scroll container, so a fast flick + momentum could leave the content
+      scrolled up into that empty gap (the "unusable blank space"). Replaced
+      with flexible `::before`/`::after` spacers (`margin: auto`): they centre
+      content when it fits and collapse to zero when it overflows, so the slide
+      top-aligns and scrolls cleanly from the top. `overscroll-behavior:
+      contain` kills the rubber-band overshoot. */
 
 .reveal {
   width: 100vw !important;
@@ -94,8 +85,12 @@
   padding: 0 !important;
   transform: none !important;
 
-  /* centre prose horizontally; code/output overridden to left below */
-  text-align: center;
+  /* Notebook-faithful alignment (0.1.12). 0.1.6 set `text-align: center` here
+     to keep short prose visually centred under browser zoom, but that made the
+     slideshow deviate from how the same content reads in the notebook
+     (Prof. Chan, 21/7). Text now flows left as in a notebook; the content
+     COLUMN is what gets centred — see the shared-width rule below. */
+  text-align: left;
 }
 
 .reveal .slides > section,
@@ -128,15 +123,34 @@
   margin: auto 0;
 }
 
-/* Cap slide content to the slide width so long lines wrap instead of
-   overflowing horizontally (which got clipped at high zoom). `min-width: 0`
-   overrides the flex default of `min-width: auto`, which otherwise refuses to
-   shrink below the content's intrinsic width and breaks wrapping. */
+/* Shared content column (0.1.12). Every top-level block on a slide takes the
+   SAME width and therefore shares ONE left edge, and the column as a whole is
+   centred in the viewport (`margin: auto` + `align-items: center` above).
+
+   Before, each block was shrink-to-fit and individually centred, so a short
+   admonition/header sat on a different left edge than a wide table — reading
+   as accidental indentation (Prof. Chan, 21/7: "better to have consistent
+   length ... illusion of indentation, especially for short headers").
+
+   `max-width` is in px so that zooming in (which shrinks the viewport in CSS
+   px) simply lets the column fill the screen instead of over-constraining it;
+   `min-width: 0` overrides the flex default of `min-width: auto`, which would
+   otherwise refuse to shrink below intrinsic width and break wrapping. */
 /* stylelint-disable no-descending-specificity */
 .reveal .slides > section > *,
-.reveal .slides > section > section > *,
+.reveal .slides > section > section > * {
+  width: 100% !important;
+  max-width: 1100px !important;
+  min-width: 0 !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+  overflow-wrap: break-word;
+}
+
 .reveal .slides .jp-Cell,
-.reveal .slides .jp-RenderedMarkdown {
+.reveal .slides .jp-RenderedMarkdown,
+.reveal .slides .jp-RenderedHTMLCommon {
   max-width: 100% !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
@@ -144,18 +158,13 @@
 }
 /* stylelint-enable no-descending-specificity */
 
-/* Keep code, editor content, text output and tables left-aligned even though
-   prose (titles/markdown) is centred by the slides rule above. */
-/* stylelint-disable no-descending-specificity */
-.reveal .slides .jp-Editor,
-.reveal .slides .cm-editor,
-.reveal .slides .jp-RenderedText,
-.reveal .slides .jp-OutputArea,
-.reveal .slides pre,
-.reveal .slides table {
-  text-align: left !important;
+/* Animations stay centred within the content column: an SVG figure is a
+   figure, not prose, so it should sit in the middle of the slide even though
+   the surrounding text is left-aligned. */
+.reveal .slides [data-animate],
+.reveal .slides .sliveshow-notebook-animation {
+  text-align: center;
 }
-/* stylelint-enable no-descending-specificity */
 
 /* Hide notebook cell chrome (toolbar, prompts) inside the slideshow.
    Also hide the jupyterlab-execute-time "Last executed at … in Xms" footer

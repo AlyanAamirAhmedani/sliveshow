@@ -145,7 +145,7 @@ __webpack_require__.d(exports, {
 /******/ 		// This function allow to reference async chunks
 /******/ 		__webpack_require__.u = (chunkId) => {
 /******/ 			// return url for filenames based on template
-/******/ 			return "" + chunkId + "." + {"vendors-node_modules_mathjax_src_mjs_adaptors_browserAdaptor_js-node_modules_mathjax_src_mjs_-83f995":"7a7ae463247f883d5d8c","lib_index_js-data_image_gif_base64_R0lGODlhIAAgAPMAAJmZmf_2F_2F_2F6_2Bvr8nJybW1tcDAwOjo6Nvb26-baaebe":"9e6c6d8aa7ed213df863","style_index_js":"386677e1a29cdb9e601d","vendors-node_modules_svgdotjs_svg_js_src_main_js":"768d0bb319f87bbcac7d","vendors-node_modules_reveal_js_dist_reveal_esm_js":"56225f2add35d0f8fe60","lib_rajgoel_animate_js":"55564c0cde70f8000b1f","lib_rajgoel_loadcontent_js":"c6923d12d2f3280e7dff","lib_rajgoel_animateStandalone_js":"a461cca8332d74365032"}[chunkId] + ".js";
+/******/ 			return "" + chunkId + "." + {"vendors-node_modules_mathjax_src_mjs_adaptors_browserAdaptor_js-node_modules_mathjax_src_mjs_-83f995":"7a7ae463247f883d5d8c","lib_index_js-data_image_gif_base64_R0lGODlhIAAgAPMAAJmZmf_2F_2F_2F6_2Bvr8nJybW1tcDAwOjo6Nvb26-baaebe":"dc466b99ba69aa26f8d5","style_index_js":"711605c50b60d1315680","vendors-node_modules_svgdotjs_svg_js_src_main_js":"768d0bb319f87bbcac7d","vendors-node_modules_reveal_js_dist_reveal_esm_js":"56225f2add35d0f8fe60","lib_rajgoel_animate_js":"55564c0cde70f8000b1f","lib_rajgoel_loadcontent_js":"c6923d12d2f3280e7dff","lib_rajgoel_animateStandalone_js":"a461cca8332d74365032"}[chunkId] + ".js";
 /******/ 		};
 /******/ 	})();
 /******/ 	
@@ -265,7 +265,7 @@ __webpack_require__.d(exports, {
 /******/ 				case "default": {
 /******/ 					register("@svgdotjs/svg.js", "3.2.5", () => (__webpack_require__.e("vendors-node_modules_svgdotjs_svg_js_src_main_js").then(() => (() => (__webpack_require__(/*! ./node_modules/@svgdotjs/svg.js/src/main.js */ "./node_modules/@svgdotjs/svg.js/src/main.js"))))));
 /******/ 					register("reveal.js", "5.2.1", () => (__webpack_require__.e("vendors-node_modules_reveal_js_dist_reveal_esm_js").then(() => (() => (__webpack_require__(/*! ./node_modules/reveal.js/dist/reveal.esm.js */ "./node_modules/reveal.js/dist/reveal.esm.js"))))));
-/******/ 					register("sliveshow", "0.1.11", () => (Promise.all([__webpack_require__.e("vendors-node_modules_mathjax_src_mjs_adaptors_browserAdaptor_js-node_modules_mathjax_src_mjs_-83f995"), __webpack_require__.e("lib_index_js-data_image_gif_base64_R0lGODlhIAAgAPMAAJmZmf_2F_2F_2F6_2Bvr8nJybW1tcDAwOjo6Nvb26-baaebe")]).then(() => (() => (__webpack_require__(/*! ./lib/index.js */ "./lib/index.js"))))));
+/******/ 					register("sliveshow", "0.1.12", () => (Promise.all([__webpack_require__.e("vendors-node_modules_mathjax_src_mjs_adaptors_browserAdaptor_js-node_modules_mathjax_src_mjs_-83f995"), __webpack_require__.e("lib_index_js-data_image_gif_base64_R0lGODlhIAAgAPMAAJmZmf_2F_2F_2F6_2Bvr8nJybW1tcDAwOjo6Nvb26-baaebe")]).then(() => (() => (__webpack_require__(/*! ./lib/index.js */ "./lib/index.js"))))));
 /******/ 				}
 /******/ 				break;
 /******/ 			}
@@ -576,4 +576,4 @@ __webpack_require__.d(exports, {
 /******/ 	
 /******/ })()
 ;
-//# sourceMappingURL=remoteEntry.239d346b7d65cae270dc.js.map
+//# sourceMappingURL=remoteEntry.90d108f10e44e32759ad.js.map
