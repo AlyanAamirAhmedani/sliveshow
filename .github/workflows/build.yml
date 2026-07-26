@@ -67,7 +67,11 @@ jobs:
     - name: Install Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        # Was '3.9'. The Jupyter stack has moved past it: nbformat now pulls a
+        # fastjsonschema that uses PEP 604 syntax (`dict | bool`) at import
+        # time, which raises TypeError on 3.9, so the job failed before the
+        # extension was even exercised.
+        python-version: '3.11'
         architecture: 'x64'
     - uses: actions/download-artifact@v4
       with:
@@ -155,8 +159,12 @@ jobs:
       - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
       - uses: jupyterlab/maintainer-tools/.github/actions/check-links@v1
         with:
-          # The demo lives on GitHub Pages, published by the separate "Deploy
-          # demo" workflow, which can still be deploying (or queued) when this
-          # job runs — so the link 404s intermittently. Deploy demo already
-          # verifies the site builds, so skip these URLs in the link checker.
-          ignore_links: 'https://alyanaamirahmedani.github.io/.*'
+          # Skipped URLs:
+          # - The demo lives on GitHub Pages, published by the separate "Deploy
+          #   demo" workflow, which can still be deploying (or queued) when this
+          #   job runs — so the link 404s intermittently. Deploy demo already
+          #   verifies the site builds.
+          # - Wikimedia rejects unlisted thumbnail sizes with HTTP 400 and
+          #   doi.org returns 403 to automated clients; both links are valid in
+          #   a browser and come from course material, not from our docs.
+          ignore_links: 'https://alyanaamirahmedani.github.io/.* https://upload.wikimedia.org/.* https://doi.org/.*'
