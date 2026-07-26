@@ -183,12 +183,10 @@ const initAnimate = function (Reveal) {
             }
           }
         } catch (error) {
-          console.error(
-            "Error '" +
-              error +
-              "' setting up element " +
-              JSON.stringify(setup[i])
-          );
+          // Log with separate arguments: string-concatenating a thrown value
+          // can itself throw (e.g. an object with no usable toString), which
+          // previously aborted the whole animation setup.
+          console.error('sliveshow: error setting up element', setup[i], error);
         }
       }
       //console.warn(animatedSVGs[index].svg.node.getAttribute("style"));
@@ -260,10 +258,9 @@ const initAnimate = function (Reveal) {
             timestamp = anim.duration();
           } catch (error) {
             console.error(
-              "Error '" +
-                error +
-                "' setting up animation " +
-                JSON.stringify(animations[fragment][i])
+              'sliveshow: error setting up animation',
+              animations[fragment][i],
+              error
             );
           }
         }
@@ -311,8 +308,10 @@ const initAnimate = function (Reveal) {
     for (var i = 0; i < elements.length; i++) {
       //   console.warn('Play', elements[i]);
       const index = elements[i].getAttribute('data-animation-index');
-      if (animatedSVGs[index].animation) {
-        animatedSVGs[index].animation.play();
+      try {
+        animatedSVGs[index]?.animation?.play();
+      } catch (error) {
+        console.error('sliveshow: error playing animation', index, error);
       }
     }
     autoPause();
@@ -328,8 +327,10 @@ const initAnimate = function (Reveal) {
     var elements = Reveal.getCurrentSlide().querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
       const index = elements[i].getAttribute('data-animation-index');
-      if (animatedSVGs[index].animation) {
-        animatedSVGs[index].animation.pause();
+      try {
+        animatedSVGs[index]?.animation?.pause();
+      } catch (error) {
+        console.error('sliveshow: error pausing animation', index, error);
       }
     }
   }
@@ -346,7 +347,7 @@ const initAnimate = function (Reveal) {
     for (var i = 0; i < elements.length; i++) {
       const index = elements[i].getAttribute('data-animation-index');
       if (
-        animatedSVGs[index].animation &&
+        animatedSVGs[index]?.animation &&
         animatedSVGs[index].animationSchedule[fragment]
       ) {
         //console.log( animatedSVGs[index].animationSchedule[fragment].end, animatedSVGs[index].animation.time());
@@ -374,7 +375,7 @@ const initAnimate = function (Reveal) {
     var elements = Reveal.getCurrentSlide().querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
       const index = elements[i].getAttribute('data-animation-index');
-      if (animatedSVGs[index].animation && animatedSVGs[index].loop) {
+      if (animatedSVGs[index]?.animation && animatedSVGs[index].loop) {
         animatedSVGs[index].animation.time(
           animatedSVGs[index].animationSchedule[0].begin || 0
         );
@@ -391,7 +392,7 @@ const initAnimate = function (Reveal) {
       const index = elements[i].getAttribute('data-animation-index');
       //console.log("Seek",timestamp,animatedSVGs[index].animationSchedule[fragment].begin + (timestamp || 0) );
       if (
-        animatedSVGs[index].animation &&
+        animatedSVGs[index]?.animation &&
         animatedSVGs[index].animationSchedule[fragment]
       ) {
         animatedSVGs[index].animation.time(
@@ -570,15 +571,13 @@ console.log('resumed ');
     // scoped to the deck for the same reason as initialize()
     var elements = Reveal.getRevealElement().querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
-      if (animatedSVGs[i].animation && animatedSVGs[i].animationSchedule) {
-        animatedSVGs[i].animation.stop();
+      try {
+        if (animatedSVGs[i]?.animation && animatedSVGs[i].animationSchedule) {
+          animatedSVGs[i].animation.stop();
+        }
+      } catch (error) {
+        console.error('sliveshow: error stopping animation', i, error);
       }
-    }
-    if (document.fullscreenElement) {
-      // Entering fullscreen (slideshow start): the stop() above also kills
-      // the CURRENT slide's autoplaying animation, and no slidechanged event
-      // will restart it (e.g. "Start from current cell"). Re-animate.
-      animateSlide(0);
     }
   });
 

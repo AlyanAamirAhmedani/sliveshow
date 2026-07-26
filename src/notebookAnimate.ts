@@ -30,9 +30,15 @@ const ANIMATION_CLASS = 'sliveshow-notebook-animation';
 // share jp-RenderedHTMLCommon; keep the specific class first for stock Lab.
 const RENDERED_SELECTOR = '.jp-RenderedMarkdown, .jp-RenderedHTMLCommon';
 
-// Diagnostic logging for 0.1.9 — remove/quiet once stable.
+// Diagnostic logging. Silent by default; the integration bugs found on the
+// DIVE hub (re-render wipes, renderer differences, stale bundles) were all
+// diagnosed from these messages, so they stay available on demand. Turn them
+// on from the browser console with:
+//   window.SLIVESHOW_DEBUG = true    (then re-render the cell)
 const log = (...args: any[]): void => {
-  console.log('sliveshow-nb:', ...args);
+  if ((window as any).SLIVESHOW_DEBUG) {
+    console.log('sliveshow-nb:', ...args);
+  }
 };
 
 /**

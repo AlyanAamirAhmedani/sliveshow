@@ -16,6 +16,61 @@
       "enum": ["none", "slide", "fade", "zoom"],
       "enumNames": ["None", "Slide", "Fade", "Zoom"],
       "default": "slide"
+    },
+    "reveal_plugins": {
+      "title": "Reveal.js plugins",
+      "description": "Third-party Reveal.js plugins to load when a slideshow starts. Each entry gives the global variable the plugin registers (name), the URL of its script, optional stylesheet URL(s), and optional configuration merged into Reveal's config. A plugin that fails to load is reported in the browser console and skipped. Example: the chalkboard plugin below lets you annotate slides live — press B for the chalkboard and C for the notes canvas — and is disabled by default.",
+      "type": "array",
+      "default": [
+        {
+          "name": "RevealChalkboard",
+          "script": "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/chalkboard/plugin.js",
+          "css": [
+            "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/chalkboard/style.css"
+          ],
+          "config": {
+            "chalkboard": {
+              "theme": "whiteboard"
+            }
+          },
+          "enabled": false
+        }
+      ],
+      "items": {
+        "type": "object",
+        "required": ["name", "script"],
+        "properties": {
+          "name": {
+            "title": "Global name",
+            "description": "The global variable the plugin registers, e.g. RevealChalkboard.",
+            "type": "string"
+          },
+          "script": {
+            "title": "Script URL",
+            "description": "URL of the plugin script, e.g. a jsDelivr link or a file served by Jupyter.",
+            "type": "string"
+          },
+          "css": {
+            "title": "Stylesheet URL(s)",
+            "description": "Optional stylesheet(s) the plugin needs.",
+            "type": ["string", "array"],
+            "items": { "type": "string" }
+          },
+          "config": {
+            "title": "Reveal config",
+            "description": "Merged into Reveal's configuration, e.g. { \"chalkboard\": { \"theme\": \"whiteboard\" } }.",
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enabled": {
+            "title": "Enabled",
+            "description": "Set false to keep the entry but skip loading it.",
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false,

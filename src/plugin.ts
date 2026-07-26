@@ -11,6 +11,127 @@ import '@svgdotjs/svg.js';
 // avoid implicit any error
 declare const window: any;
 
+/**
+ * Description of a third-party Reveal.js plugin to load at runtime.
+ *
+ * Reveal plugins (e.g. rajgoel's chalkboard) ship as a classic script that
+ * registers a global — `RevealChalkboard`, `RevealMenu`, ... — plus an
+ * optional stylesheet. They cannot be bundled ahead of time, so they are
+ * fetched from a URL when the slideshow starts and their global is handed to
+ * Reveal's `plugins` array.
+ */
+interface IRevealPluginSpec {
+  /** Global variable the plugin registers, e.g. 'RevealChalkboard'. */
+  name: string;
+  /** URL of the plugin script. */
+  script: string;
+  /** Optional stylesheet URL(s) required by the plugin. */
+  css?: string | string[];
+  /** Config merged into Reveal's config, e.g. { chalkboard: { ... } }. */
+  config?: { [key: string]: any };
+  /** Set false to keep the entry but skip loading it. */
+  enabled?: boolean;
+}
+
+/** Load a script once per page, resolving when it has executed. */
+const loadPluginScript = (url: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const selector = `script[data-sliveshow-plugin="${CSS.escape(url)}"]`;
+    const existing = document.querySelector(
+      selector
+    ) as HTMLScriptElement | null;
+    if (existing) {
+      if (existing.dataset.sliveshowLoaded === 'true') {
+        resolve();
+      } else {
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () =>
+          reject(new Error(`Failed to load plugin script: ${url}`))
+        );
+      }
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = url;
+    // keep execution order deterministic when several plugins are listed
+    script.async = false;
+    script.dataset.sliveshowPlugin = url;
+    script.addEventListener('load', () => {
+      script.dataset.sliveshowLoaded = 'true';
+      resolve();
+    });
+    script.addEventListener('error', () =>
+      reject(new Error(`Failed to load plugin script: ${url}`))
+    );
+    document.head.appendChild(script);
+  });
+
+/** Add a stylesheet once per page. */
+const loadPluginStyle = (url: string): void => {
+  const selector = `link[data-sliveshow-plugin="${CSS.escape(url)}"]`;
+  if (document.querySelector(selector)) {
+    return;
+  }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = url;
+  link.dataset.sliveshowPlugin = url;
+  document.head.appendChild(link);
+};
+
+/**
+ * Load every configured Reveal plugin, returning the plugin objects to pass
+ * to `Reveal.initialize` together with the config they contribute.
+ *
+ * A plugin that fails to load is reported and skipped: a bad URL or an
+ * offline CDN must never stop the slideshow from starting.
+ */
+const loadRevealPlugins = async (
+  specs: IRevealPluginSpec[]
+): Promise<{ plugins: any[]; config: { [key: string]: any } }> => {
+  const plugins: any[] = [];
+  const config: { [key: string]: any } = {};
+  for (const spec of specs ?? []) {
+    if (!spec || spec.enabled === false) {
+      continue;
+    }
+    if (!spec.name || !spec.script) {
+      console.warn(
+        'sliveshow: ignoring plugin entry without name/script:',
+        spec
+      );
+      continue;
+    }
+    try {
+      await loadPluginScript(spec.script);
+      const styles = Array.isArray(spec.css)
+        ? spec.css
+        : spec.css
+          ? [spec.css]
+          : [];
+      styles.forEach(loadPluginStyle);
+      const instance = window[spec.name];
+      if (!instance) {
+        console.warn(
+          `sliveshow: plugin script loaded but window.${spec.name} is undefined ` +
+            `(check the "name" setting for ${spec.script})`
+        );
+        continue;
+      }
+      plugins.push(instance);
+      Object.assign(config, spec.config ?? {});
+      console.log(`sliveshow: loaded Reveal plugin ${spec.name}`);
+    } catch (error) {
+      console.error(
+        'sliveshow: could not load Reveal plugin',
+        spec.name,
+        error
+      );
+    }
+  }
+  return { plugins, config };
+};
+
 const plugin = (
   app: JupyterFrontEnd,
   tracker: INotebookTracker,
@@ -45,7 +166,9 @@ const plugin = (
     return {
       dummy: setting.get('dummy').composite as boolean,
       default_transition: setting.get('default_transition')
-        .composite as Transition
+        .composite as Transition,
+      reveal_plugins: (setting.get('reveal_plugins')?.composite ??
+        []) as IRevealPluginSpec[]
     };
   };
 
@@ -257,12 +380,22 @@ const plugin = (
               }
             });
           }
+          // Third-party Reveal plugins (chalkboard, menu, ...) are fetched
+          // now so their globals exist before Reveal initializes. Their
+          // config is spread first so the settings below stay authoritative
+          // — disableLayout in particular is load-bearing for our layout.
+          const external = await loadRevealPlugins(csSettings.reveal_plugins);
           reveal = new Reveal(revealContainer, {
+            ...external.config,
             // @ts-expect-error: required for Animate plugin to work
             animate: {
               autoplay: true
             },
-            plugins: [window.RevealLoadContent, window.RevealAnimate],
+            plugins: [
+              window.RevealLoadContent,
+              window.RevealAnimate,
+              ...external.plugins
+            ],
             transition: csSettings.default_transition || 'slide',
             // Fix (A1): disable Reveal's auto-scaling/centering so the slideshow
             // behaves like a normal page. Otherwise Reveal scales content to fit
@@ -475,7 +608,7 @@ const plugin = (
   };
 
   // init DOM elements
-  /* 
+  /*
   <(sub)slide>
     slides
     children

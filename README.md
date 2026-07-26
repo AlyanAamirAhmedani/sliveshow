@@ -133,6 +133,35 @@ Since 0.1.8, the same `data-animate` / `{svg-animate}` cells **also animate in t
 
 ---
 
+### Reveal.js plugins (chalkboard, ...)
+
+sliveshow can load any [Reveal.js plugin](https://revealjs.com/plugins/) at runtime — no rebuild required. Add entries under **Settings → Settings Editor → Sliveshow → Reveal.js plugins**:
+
+```json
+[
+  {
+    "name": "RevealChalkboard",
+    "script": "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/chalkboard/plugin.js",
+    "css": [
+      "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/chalkboard/style.css"
+    ],
+    "config": { "chalkboard": { "theme": "whiteboard" } },
+    "enabled": true
+  }
+]
+```
+
+- `name` — the global the plugin registers (e.g. `RevealChalkboard`)
+- `script` / `css` — where to fetch it from (a CDN, or a file served by Jupyter)
+- `config` — merged into Reveal's configuration
+- `enabled` — set `false` to keep an entry without loading it
+
+A plugin that fails to load is reported in the browser console and skipped, so an unreachable CDN can never stop a lecture from starting.
+
+**Chalkboard** is preconfigured (disabled by default): enable it and press **C** to annotate the current slide or **B** for a full chalkboard — ideal for working through an example live. Drag to draw, right-drag to erase, **DEL** to clear.
+
+---
+
 ### Animating math (MathJax 4)
 
 sliveshow replaces JupyterLab's default math renderer with **MathJax 4 SVG output**, so every formula in a markdown cell is an SVG that can be animated like any other — in the slideshow **and** in the notebook view.
