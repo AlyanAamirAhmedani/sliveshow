@@ -9,7 +9,11 @@
 }
 
 .slide-container {
-  overflow: scroll;
+  /* The panel we take fullscreen must NOT scroll: each slide section handles
+     its own scrolling. While this was `overflow: scroll`, anything tall that a
+     Reveal plugin injects (e.g. chalkboard's canvases) made the whole panel
+     scrollable, so the deck rode up and left a blank band below it. */
+  overflow: hidden;
   scrollbar-width: none;
 }
 
@@ -195,4 +199,60 @@
 .sliveshow-notebook-animation svg {
   max-width: 100%;
   height: auto;
+}
+
+/* ============================================
+   Reveal plugin overlays (chalkboard) — 0.2.1
+   ============================================ */
+
+/* The chalkboard plugin injects an overlay containing two full-size canvases.
+   Its own stylesheet only styles the colour palette and the board handle, so
+   the canvases keep `position: static` and join the slide's flex column —
+   roughly 2000px of extra height. That made the section scrollable, collapsed
+   the centring spacers (see Fix 7 above) and left the blank area Prof. Chan's
+   fast-scroll fix was meant to remove.
+
+   Pin the overlay to the fullscreen box and take the canvases out of flow at
+   their existing origin: no size or offset changes, so drawing still lands
+   exactly under the cursor, but they contribute zero layout height. */
+.overlay.r-overlay,
+.reveal .overlay,
+.reveal .r-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.overlay.r-overlay > canvas,
+.reveal .overlay > canvas,
+.reveal .r-overlay > canvas {
+  /* `position: absolute` alone is enough to take the canvases out of the
+     layout flow (which is all we need — see above). Deliberately no `top` /
+     `left`: chalkboard positions the canvases itself, and pinning them broke
+     the board controls.
+
+     The canvases now overlap instead of stacking in flow, and the chalkboard
+     canvas comes AFTER the colour palette and board handle in document
+     order — so without an explicit stacking order it painted over them and
+     swallowed their clicks (dead palette, dead next/previous board arrows). */
+  position: absolute !important;
+  z-index: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+}
+
+/* Chalkboard's own controls must stay above the canvases and clickable. */
+.overlay.r-overlay > .palette,
+.overlay.r-overlay > .boardhandle,
+.reveal .overlay > .palette,
+.reveal .overlay > .boardhandle,
+.reveal .r-overlay > .palette,
+.reveal .r-overlay > .boardhandle {
+  z-index: 2 !important;
+  pointer-events: auto !important;
 }

@@ -104,6 +104,8 @@ Use the `{svg-animate}` directive in a markdown cell. The same cell works in bot
 :::
 ```
 
+> **Note for hubs with `jupyterlab-myst` installed (e.g. DIVE):** jupyterlab-myst parses `:::` blocks itself and shows _“svg-animate — Unknown Directive”_ for directives it doesn’t know. sliveshow replaces that error block with the animation, so the cell still animates — but if you only care about the notebook and the slideshow, **Method A (`<div data-animate>`) is the simpler choice**. Method B exists so the _same_ cell also renders in a static Jupyter Book 2 build.
+
 To enable `{svg-animate}` in a mystmd/Jupyter Book 2 build, add the plugin to your `myst.yml`:
 
 ```yaml

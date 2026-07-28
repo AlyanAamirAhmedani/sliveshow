@@ -42,17 +42,27 @@ const log = (...args: any[]): void => {
 };
 
 /**
+ * The animation block extracted from raw markdown source, plus which syntax
+ * it came from — the two syntaxes leave completely different things behind in
+ * the rendered output, so the injection site is found differently for each.
+ */
+interface IExtractedAnimation {
+  div: HTMLElement;
+  kind: 'html' | 'directive';
+}
+
+/**
  * Extract the animation block from raw markdown source as a detached
  * `<div data-animate>` element. Mirrors the two branches of
  * `addToRevealSlide` in plugin.ts (raw HTML and {svg-animate} directive).
  */
-const extractAnimateDiv = (src: string): HTMLElement | null => {
+const extractAnimateDiv = (src: string): IExtractedAnimation | null => {
   if (src.includes('data-animate')) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = src;
     const animDiv = wrapper.querySelector('[data-animate]');
     if (animDiv) {
-      return animDiv as HTMLElement;
+      return { div: animDiv as HTMLElement, kind: 'html' };
     }
   }
   if (src.includes(':::{svg-animate}')) {
@@ -63,34 +73,58 @@ const extractAnimateDiv = (src: string): HTMLElement | null => {
       const animDiv = document.createElement('div');
       animDiv.setAttribute('data-animate', '');
       animDiv.innerHTML = directiveMatch[1].trim();
-      return animDiv;
+      return { div: animDiv, kind: 'directive' };
     }
   }
   return null;
 };
 
-/**
- * Find what the sanitizer left behind of the animation block in the rendered
- * markdown, so the animated version can take its place:
- * - raw HTML path: the wrapper `<div>` survives but loses all attributes
- *   (and its SVG/config), so look for the first attribute-less div;
- * - directive path: the `:::{svg-animate}` lines render as literal text.
- */
-const findSanitizedLeftover = (rendered: HTMLElement): Element | null => {
-  const divs = rendered.querySelectorAll('div');
-  for (let i = 0; i < divs.length; i++) {
-    if (divs[i].attributes.length === 0) {
-      return divs[i];
-    }
+/** Climb from a matched node to the top-level block inside `rendered`. */
+const topLevelBlock = (rendered: HTMLElement, el: Element): Element => {
+  let node: Element = el;
+  while (node.parentElement && node.parentElement !== rendered) {
+    node = node.parentElement;
   }
+  return node;
+};
+
+/**
+ * Find what the renderer left behind of the animation block, so the animated
+ * version can take its place. Which strategy applies is decided by the syntax
+ * we extracted, not by guessing from the DOM:
+ *
+ * - `html`: JupyterLab's sanitizer strips `data-animate` and the inline SVG
+ *   but keeps the wrapper `<div>` — now attribute-less.
+ * - `directive`: with the stock renderer the `:::{svg-animate}` lines survive
+ *   as literal text; with jupyterlab-myst (DIVE) myst parses `:::` itself and
+ *   replaces the block with an "Unknown Directive" error component. Either
+ *   way the rendered output is the only top-level block mentioning
+ *   `svg-animate`, so match on that and replace the whole block.
+ */
+const findSanitizedLeftover = (
+  rendered: HTMLElement,
+  kind: 'html' | 'directive'
+): Element | null => {
+  if (kind === 'html') {
+    const divs = rendered.querySelectorAll('div');
+    for (let i = 0; i < divs.length; i++) {
+      if (divs[i].attributes.length === 0) {
+        return divs[i];
+      }
+    }
+    return null;
+  }
+
   const paragraphs = rendered.querySelectorAll('p');
   for (let i = 0; i < paragraphs.length; i++) {
     if (
       (paragraphs[i].textContent || '').trim().startsWith(':::{svg-animate}')
     ) {
-      return paragraphs[i];
+      return topLevelBlock(rendered, paragraphs[i]);
     }
   }
+  // No literal `:::` text: jupyterlab-myst parsed the directive itself and
+  // owns this output. Caller mounts outside its React tree instead.
   return null;
 };
 
@@ -155,15 +189,16 @@ const plugin: JupyterFrontEndPlugin<void> = {
           return;
         }
         // remove a previous injection (e.g. cell was re-rendered)
-        rendered
+        cell.node
           .querySelectorAll(`.${ANIMATION_CLASS}`)
-          .forEach(el => el.remove());
+          .forEach((el: Element) => el.remove());
 
         const src: string = cell.model?.sharedModel?.getSource() ?? '';
-        const animDiv = extractAnimateDiv(src);
-        if (!animDiv) {
+        const extracted = extractAnimateDiv(src);
+        if (!extracted) {
           return;
         }
+        const animDiv = extracted.div;
         log('process: injecting animation block (attempt', attempt + ')');
 
         const container = document.createElement('div');
@@ -173,9 +208,20 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
         // Swap the sanitized leftovers for the live animation block, keeping
         // the rest of the cell (headings, prose) intact.
-        const leftover = findSanitizedLeftover(rendered);
+        const leftover = findSanitizedLeftover(rendered, extracted.kind);
         if (leftover) {
           leftover.replaceWith(container);
+        } else if (extracted.kind === 'directive') {
+          // jupyterlab-myst renders markdown with React and restores its own
+          // DOM after any outside change, so anything injected into the
+          // rendered output is wiped immediately (the watchdog and React end
+          // up fighting in a loop). Mount on the cell node instead — outside
+          // React's tree — so the animation survives. myst still shows its
+          // "Unknown Directive" notice above it, since that block belongs to
+          // React; see the README note recommending the `data-animate` form
+          // in myst environments.
+          log('process: myst-managed output, mounting outside the React tree');
+          cell.node.appendChild(container);
         } else {
           rendered.appendChild(container);
         }
