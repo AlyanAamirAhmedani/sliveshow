@@ -9,6 +9,7 @@ import { PLUGIN_ID } from './constants';
 import pluginMain from './plugin';
 import mjPlugin from './mathjax4/plugin';
 import notebookAnimatePlugin from './notebookAnimate';
+import { installTopLayerPortals } from './topLayerPortals';
 
 /**
  * Initialization data for the sliveshow extension.
@@ -26,6 +27,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     typesetter: ILatexTypesetter | null
   ) => {
     console.log('JupyterLab extension sliveshow is activated!');
+    installTopLayerPortals();
     pluginMain(app, nbTracker, settingRegistry, typesetter);
     if (settingRegistry) {
       settingRegistry

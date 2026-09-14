@@ -256,3 +256,39 @@
   z-index: 2 !important;
   pointer-events: auto !important;
 }
+
+/* ============================================
+   myst hover previews in fullscreen (0.2.2)
+   ============================================
+
+   Companion to src/topLayerPortals.ts. Promoting a Radix hover card with the
+   Popover API also opts it into the UA stylesheet for `[popover]`, which draws
+   a bordered, padded, opaque box and sets `inset: 0`.
+
+   Radix positions the wrapper with inline `position: fixed; left: 0; top: 0`
+   plus a transform, so its own top/left already beat the UA rule — but nothing
+   overrides the UA's `right: 0; bottom: 0`, which squeezes the card against the
+   right edge of the viewport. Reset those two edges and strip the UA chrome;
+   deliberately do NOT touch top/left, or the transform lands in the wrong
+   place. */
+
+[data-radix-popper-content-wrapper].sliveshow-top-layer {
+  right: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  overflow: visible !important;
+}
+
+/* `popover=manual` still gets a ::backdrop box. Keep it invisible so the slide
+   underneath is not dimmed while a preview is open. */
+[data-radix-popper-content-wrapper].sliveshow-top-layer::backdrop {
+  background: transparent !important;
+}
