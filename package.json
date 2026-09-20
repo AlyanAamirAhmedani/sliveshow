@@ -1,6 +1,6 @@
 {
     "name": "sliveshow",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "JupyterLab extension for animated slideshow.",
     "keywords": [
         "jupyter",
