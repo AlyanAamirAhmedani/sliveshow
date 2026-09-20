@@ -1,0 +1,35 @@
+{
+  "sliveshow:plugin": {
+    "reveal_plugins": [
+      {
+        "name": "RevealChalkboard",
+        "script": "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/chalkboard/plugin.js",
+        "css": ["https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/chalkboard/style.css"],
+        "config": { "chalkboard": { "theme": "whiteboard" } },
+        "enabled": true
+      },
+      {
+        "name": "RevealCustomControls",
+        "script": "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/customcontrols/plugin.js",
+        "css": ["https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/customcontrols/style.css"],
+        "config": {
+          "customcontrols": {
+            "controls": [
+              {
+                "icon": "&#9998;",
+                "title": "Draw on this slide (C)",
+                "action": "RevealChalkboard.toggleNotesCanvas();"
+              },
+              {
+                "icon": "&#9638;",
+                "title": "Blank chalkboard (B)",
+                "action": "RevealChalkboard.toggleChalkboard();"
+              }
+            ]
+          }
+        },
+        "enabled": true
+      }
+    ]
+  }
+}

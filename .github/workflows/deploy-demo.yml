@@ -42,7 +42,12 @@ jobs:
 
       - name: Install JupyterLite + sliveshow
         shell: bash -el {0}
-        run: python -m pip install -r jupyterlite-demo/requirements.txt
+        # sliveshow is installed FROM THIS CHECKOUT, not from PyPI, so the demo
+        # site always carries whatever is on main. Without this the site keeps
+        # serving the last published release however often it is redeployed.
+        run: |
+          python -m pip install -r jupyterlite-demo/requirements.txt
+          python -m pip install .
 
       - name: Build the JupyterLite site
         shell: bash -el {0}

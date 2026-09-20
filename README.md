@@ -52,9 +52,40 @@ Code cell input can be hidden via **Hide Code Cell**, showing only the output.
 
 ![Hide code cell](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/code_cell.png?raw=true)
 
-To start a slideshow, use the **Slideshow** menu → **Start from first cell** or **Start from current cell**. To exit, press Escape or use **Exit slideshow**.
+To start a slideshow, use the **Sliveshow** menu → **Start from first cell (full screen)** or **Start from current cell (full screen)**. To exit, press Escape or use **Exit slideshow**.
 
 ![Start slideshow](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/start_slideshow.png?raw=true)
+
+---
+
+### Slides beside the notebook
+
+**Sliveshow → Open beside notebook** puts the slides in a panel next to the
+notebook instead of taking over the screen, so you can keep working on the
+notebook while the deck is up:
+
+|                          |                                              |
+| ------------------------ | -------------------------------------------- |
+| **Type in a cell**       | the slide shows it as you type               |
+| **Run a cell**           | the output appears on the slide              |
+| **Select a cell**        | the deck jumps to the slide that cell is on  |
+| **Add or delete a cell** | the deck rebuilds itself, keeping your place |
+
+Nothing is exported and there is no preview to reload, because the panel is a
+**second view of the same notebook**: one document, one model, one kernel. Both
+views show the same live cells, so a change on one side is already on the other.
+
+**Sliveshow → Open beside notebook from current cell** does the same but opens
+on the slide holding the selected cell, and **Rebuild slides** rebuilds the deck
+by hand if you ever need it.
+
+Close the panel, or use **Exit slideshow**, to stop. The notebook itself is
+never modified: the panel is the copy, so closing it leaves your notebook
+exactly as it was.
+
+Keyboard shortcuts drive the slides only while the slides panel is the active
+tab, so typing in the notebook can never navigate the deck. The deck's tab is
+marked with a ▶ so you can tell the two views apart.
 
 ---
 

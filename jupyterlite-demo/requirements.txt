@@ -10,4 +10,5 @@ jupyterlite-core>=0.6,<0.7
 jupyterlite-xeus>=4,<5
 jupyterlab>=4.4,<5
 notebook>=7.4,<8
-sliveshow>=0.1.8
+# sliveshow itself is installed from this checkout by the workflow,
+# so the demo always matches main (see deploy-demo.yml).

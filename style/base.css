@@ -292,3 +292,73 @@
 [data-radix-popper-content-wrapper].sliveshow-top-layer::backdrop {
   background: transparent !important;
 }
+
+/* ============================================
+   Windowed presenting — slides beside the notebook (0.2.2)
+   ============================================
+
+   "Open beside notebook" opens a SECOND VIEW of the same notebook in a split
+   panel and builds the deck in that view. Both views share one document
+   context, so they share one model and one kernel: an edit or a cell run on
+   the left is on the slide immediately, with nothing to export and nothing to
+   reload.
+
+   The deck is built into the notebook panel's own content node either way —
+   full screen is just `requestFullscreen()` on that node. So the only thing
+   windowed mode has to undo is the sizing that assumed the node filled the
+   screen: `100vw` widths and `position: fixed` controls, both of which are
+   measured against the browser window rather than the panel. */
+
+.reveal.sliveshow-windowed {
+  /* `.slide-container` is the notebook's content node, which Lumino positions
+     absolutely, so `inset: 0` resolves against the panel. This also lifts the
+     deck over the (now empty) cell viewport left behind in the same node. */
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 5 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  background: var(--jp-layout-color0);
+}
+
+.reveal.sliveshow-windowed .slides {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.reveal.sliveshow-windowed .slides > section,
+.reveal.sliveshow-windowed .slides > section > section {
+  width: 100% !important;
+  max-width: 100% !important;
+
+  /* A split panel is a fraction of the screen, so give the content more of it
+     than a full-screen slide needs to. */
+  padding: 2% 3% !important;
+}
+
+/* Nav arrows belong to the panel, not the browser window. */
+.reveal.sliveshow-windowed .controls {
+  position: absolute !important;
+  bottom: 8px !important;
+  right: 8px !important;
+}
+
+/* Chalkboard appends its overlay to the first `.reveal` in the document, so in
+   windowed mode it lands inside the deck. Pinning it to the viewport (the
+   full-screen rule above) would spread it over the whole window, including the
+   notebook being edited; keep it inside the panel instead. */
+.reveal.sliveshow-windowed .overlay.r-overlay,
+.reveal.sliveshow-windowed .r-overlay {
+  position: absolute !important;
+  width: 100% !important;
+}
+
+/* The deck opens as a second view of the same notebook, so its tab carries the
+   same file name as the original. Mark it rather than renaming it: a
+   DocumentWidget reads a changed tab LABEL as a request to rename the file on
+   disk, which is exactly what must not happen to someone's lecture. */
+.lm-TabBar-tab.sliveshow-deck-tab .lm-TabBar-tabLabel::before {
+  content: '▶ ';
+  color: var(--jp-brand-color1);
+}

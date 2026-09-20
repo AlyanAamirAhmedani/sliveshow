@@ -19,7 +19,7 @@
     },
     "reveal_plugins": {
       "title": "Reveal.js plugins",
-      "description": "Third-party Reveal.js plugins to load when a slideshow starts. Each entry gives the global variable the plugin registers (name), the URL of its script, optional stylesheet URL(s), and optional configuration merged into Reveal's config. A plugin that fails to load is reported in the browser console and skipped. Example: the chalkboard plugin below lets you annotate slides live — press B for the chalkboard and C for the notes canvas — and is disabled by default.",
+      "description": "Third-party Reveal.js plugins to load when a slideshow starts. Each entry gives the global variable the plugin registers (name), the URL of its script, optional stylesheet URL(s), and optional configuration merged into Reveal's config. A plugin that fails to load is reported in the browser console and skipped. Example: the chalkboard plugin below lets you annotate slides live \u2014 press B for the chalkboard and C for the notes canvas \u2014 and is disabled by default.",
       "type": "array",
       "default": [
         {
@@ -54,7 +54,9 @@
             "title": "Stylesheet URL(s)",
             "description": "Optional stylesheet(s) the plugin needs.",
             "type": ["string", "array"],
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "config": {
             "title": "Reveal config",
@@ -82,13 +84,36 @@
         "rank": 80,
         "items": [
           {
-            "command": "slideshow:start-first"
+            "command": "slideshow:start-first",
+            "rank": 10
           },
           {
-            "command": "slideshow:start-current"
+            "command": "slideshow:start-current",
+            "rank": 20
           },
           {
-            "command": "slideshow:exit"
+            "type": "separator",
+            "rank": 30
+          },
+          {
+            "command": "slideshow:start-beside",
+            "rank": 40
+          },
+          {
+            "command": "slideshow:start-beside-current",
+            "rank": 50
+          },
+          {
+            "type": "separator",
+            "rank": 60
+          },
+          {
+            "command": "slideshow:refresh",
+            "rank": 70
+          },
+          {
+            "command": "slideshow:exit",
+            "rank": 80
           }
         ]
       }
