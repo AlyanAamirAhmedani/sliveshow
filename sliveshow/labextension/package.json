@@ -1,6 +1,6 @@
 {
   "name": "sliveshow",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "JupyterLab extension for animated slideshow.",
   "keywords": [
     "jupyter",
@@ -109,7 +109,7 @@
       "@jupyterlab/mathjax-extension"
     ],
     "_build": {
-      "load": "static/remoteEntry.764def01f698b3da0145.js",
+      "load": "static/remoteEntry.6b2a1acc27f31d6fe26e.js",
       "extension": "./extension",
       "style": "./style"
     }

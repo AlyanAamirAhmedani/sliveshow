@@ -79,7 +79,7 @@
   overflow: hidden !important;
 }
 
-.reveal .slides {
+.reveal:not(.overview) .slides {
   position: absolute !important;
   inset: 0 !important;
   width: 100vw !important;
@@ -97,8 +97,8 @@
   text-align: left;
 }
 
-.reveal .slides > section,
-.reveal .slides > section > section {
+.reveal:not(.overview) .slides > section,
+.reveal:not(.overview) .slides > section > section {
   width: 100vw !important;
   max-width: 100vw !important;
   height: 100% !important;
@@ -327,6 +327,7 @@
   max-width: 100% !important;
 }
 
+/* stylelint-disable no-descending-specificity */
 .reveal.sliveshow-windowed .slides > section,
 .reveal.sliveshow-windowed .slides > section > section {
   width: 100% !important;
@@ -336,6 +337,7 @@
      than a full-screen slide needs to. */
   padding: 2% 3% !important;
 }
+/* stylelint-enable no-descending-specificity */
 
 /* Nav arrows belong to the panel, not the browser window. */
 .reveal.sliveshow-windowed .controls {
@@ -352,7 +354,32 @@
 .reveal.sliveshow-windowed .r-overlay {
   position: absolute !important;
   width: 100% !important;
+
+  /* The canvases below are window-sized and hang outside the panel; clip them
+     to it so the chalkboard never paints over the notebook. */
+  overflow: hidden !important;
 }
+
+/* Put the chalkboard's canvases back at the PAGE origin (0.2.3).
+
+   The plugin records a stroke at `event.pageX/pageY` and paints it straight
+   into a canvas whose bitmap is the size of the whole window. Full screen that
+   canvas starts at page (0, 0), so the two coordinate systems agree. In a
+   split panel it started at the panel's corner instead, so every stroke was
+   painted one panel-offset to the right and clipped away - "cannot draw with
+   Chalkboard for beside notebook mode" (Prof. Chan, 21/9).
+
+   Shifting each canvas back by the panel's offset makes canvas (0, 0) page
+   (0, 0) again, so the ink lands under the cursor; `overflow: hidden` above
+   keeps the part outside the panel out of sight. trackDeckGeometry() in
+   src/plugin.ts keeps these two variables current. */
+/* stylelint-disable no-descending-specificity */
+.reveal.sliveshow-windowed .overlay.r-overlay > canvas,
+.reveal.sliveshow-windowed .r-overlay > canvas {
+  inset: calc(-1 * var(--sliveshow-deck-top, 0px)) auto auto
+    calc(-1 * var(--sliveshow-deck-left, 0px)) !important;
+}
+/* stylelint-enable no-descending-specificity */
 
 /* The deck opens as a second view of the same notebook, so its tab carries the
    same file name as the original. Mark it rather than renaming it: a
@@ -361,4 +388,122 @@
 .lm-TabBar-tab.sliveshow-deck-tab .lm-TabBar-tabLabel::before {
   content: '▶ ';
   color: var(--jp-brand-color1);
+}
+
+/* ============================================
+   Slide overview (Esc) — 0.2.3
+   ============================================
+
+   Reveal lays the overview out by giving each slide
+   `transform: translate3d(h * width, 0, 0)` and scaling the whole `.slides`
+   element down. The sizing block above forces `transform: none` so that
+   Reveal's auto-layout cannot fight our own, and that rule was killing the
+   overview transforms too: every slide landed on the same coordinates and the
+   deck looked like one cramped, overlapping slide (Prof. Chan, 21/9). The
+   sizing block is now scoped to `:not(.overview)`, and the overview gets a
+   plain, readable grid of its own. */
+
+.reveal.overview {
+  overflow: visible !important;
+}
+
+.reveal.overview .slides {
+  text-align: left;
+}
+
+/* stylelint-disable no-descending-specificity */
+.reveal.overview .slides > section,
+.reveal.overview .slides > section > section {
+  box-sizing: border-box !important;
+  padding: 16px !important;
+  overflow: hidden !important;
+  background: var(--jp-layout-color0);
+  border: 1px solid var(--jp-border-color2);
+  border-radius: 4px;
+}
+/* stylelint-enable no-descending-specificity */
+
+.reveal.overview .slides > section.present,
+.reveal.overview .slides > section > section.present {
+  border-color: var(--jp-brand-color1);
+}
+
+/* ============================================
+   Slide mode — the deck shows, it does not edit (0.2.3)
+   ============================================
+
+   The deck panel drops the `jp-Notebook` class while presenting, which takes
+   JupyterLab's notebook shortcuts out of play there (see applySlideMode in
+   src/plugin.ts). What is left is the cell chrome that says "you are editing
+   this": the active-cell collapser bar, the selected-cell background and the
+   editor's focus border. None of them belong on a slide. */
+
+.reveal .slides .jp-Collapser,
+.reveal .slides .jp-cell-menu,
+.reveal .slides .jp-Cell-Placeholder {
+  display: none !important;
+}
+
+/* stylelint-disable no-descending-specificity */
+.reveal .slides .jp-Cell,
+.reveal .slides .jp-Cell.jp-mod-active,
+.reveal .slides .jp-Cell.jp-mod-selected,
+.reveal .slides .jp-Cell.jp-mod-selected.jp-mod-active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+/* stylelint-enable no-descending-specificity */
+
+.reveal .slides .jp-InputArea-editor,
+.reveal .slides .jp-Cell.jp-mod-active .jp-InputArea-editor {
+  border-color: transparent !important;
+}
+
+.sliveshow-slide-mode {
+  background: var(--jp-layout-color0);
+}
+
+/* ============================================
+   Fragments inside an animation (0.2.3)
+   ============================================
+
+   `.reveal .fragment:not(.custom)` sets `opacity: 0; visibility: hidden`, and
+   on an SVG that CSS beats the attributes svg.js animates — so an element
+   that is both a fragment and animated never appears at all (Prof. Chan,
+   21/9: "reveal.js special classes such as fragment conflicts with svg
+   animation"). plugin.ts adds Reveal's own `.custom` opt-out to fragments
+   inside an animation block so the animation owns their opacity; the
+   transition below would otherwise still smear every frame svg.js writes. */
+
+/* stylelint-disable no-descending-specificity */
+.reveal .slides [data-animate] .fragment,
+.sliveshow-notebook-animation .fragment {
+  transition: none !important;
+}
+/* stylelint-enable no-descending-specificity */
+
+/* ============================================
+   Speaker notes and audio narration (0.2.4)
+   ============================================
+
+   A cell whose slide type is "Notes" becomes `<aside class="notes">` on its
+   slide instead of being shown on it (see attachNotes in src/plugin.ts).
+   Reveal hides asides itself, but sliveshow's own layout rules are aggressive
+   enough that it is worth being explicit. */
+
+.reveal .slides aside.notes {
+  display: none !important;
+}
+
+/* rajgoel's audio-slideshow plugin positions its player with an inline
+   `position: fixed` style, so in a split panel it lands over the notebook
+   instead of under the slides. Same shape of problem as the chalkboard
+   canvases above, and the same remedy: keep it inside the deck. */
+.reveal.sliveshow-windowed .audio-controls {
+  position: absolute !important;
+  right: auto !important;
+  bottom: 6px !important;
+  left: 8% !important;
+  width: 84% !important;
+  z-index: 30 !important;
 }

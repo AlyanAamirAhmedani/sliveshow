@@ -19,7 +19,7 @@
     },
     "reveal_plugins": {
       "title": "Reveal.js plugins",
-      "description": "Third-party Reveal.js plugins to load when a slideshow starts. Each entry gives the global variable the plugin registers (name), the URL of its script, optional stylesheet URL(s), and optional configuration merged into Reveal's config. A plugin that fails to load is reported in the browser console and skipped. Example: the chalkboard plugin below lets you annotate slides live \u2014 press B for the chalkboard and C for the notes canvas \u2014 and is disabled by default.",
+      "description": "Third-party Reveal.js plugins to load when a slideshow starts. Each entry gives the global variable the plugin registers (name), the URL of its script, optional stylesheet URL(s), and optional configuration merged into Reveal's config. A plugin that fails to load is reported in the browser console and skipped. Two are pre-filled and disabled: chalkboard lets you annotate slides live (B for the chalkboard, C for the notes canvas), and audio-slideshow plays a recording or a spoken narration per slide and advances the show by itself. Set per-cell audio in SLIDESHOW TOOLS; with defaultNotes on, a cell whose slide type is Notes becomes the narration for its slide. Edit this list in the JSON Settings Editor - the form editor mangles the nested config.",
       "type": "array",
       "default": [
         {
@@ -31,6 +31,23 @@
           "config": {
             "chalkboard": {
               "theme": "whiteboard"
+            }
+          },
+          "enabled": false
+        },
+        {
+          "name": "RevealAudioSlideshow",
+          "script": "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/audio-slideshow/plugin.js",
+          "config": {
+            "audio": {
+              "defaultAudios": true,
+              "defaultNotes": true,
+              "defaultText": false,
+              "advance": 0,
+              "autoplay": false,
+              "defaultDuration": 8,
+              "playerOpacity": 0.3,
+              "textToSpeechURL": null
             }
           },
           "enabled": false
@@ -129,7 +146,10 @@
           "/slideshow/transition_out",
           "/slideshow/slide_dir",
           "/slideshow/transition_duration",
-          "/slideshow/hide_code"
+          "/slideshow/hide_code",
+          "/slideshow/audio_src",
+          "/slideshow/audio_text",
+          "/slideshow/audio_advance"
         ]
       },
       "metadataSchema": {
@@ -160,6 +180,21 @@
             "title": "Hide Code Cell",
             "type": "boolean",
             "default": false
+          },
+          "/slideshow/audio_src": {
+            "title": "Audio file",
+            "description": "Played when this slide or fragment is shown, e.g. audio/intro.webm. Needs the audio-slideshow plugin.",
+            "type": "string"
+          },
+          "/slideshow/audio_text": {
+            "title": "Narration",
+            "description": "Spoken instead of an audio file, if a text-to-speech URL is configured. A cell whose slide type is Notes narrates its slide too.",
+            "type": "string"
+          },
+          "/slideshow/audio_advance": {
+            "title": "Advance after (ms)",
+            "description": "Wait this long after the audio before moving on. Negative to stay on this slide.",
+            "type": "number"
           }
         },
         "allOf": [

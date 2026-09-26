@@ -4,6 +4,13 @@ import { ILatexTypesetter } from '@jupyterlab/rendermime';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { PLUGIN_ID, SlideType, Transition } from './constants';
 import { Cell, Slide, Subslide, Fragment } from './slideType';
+import {
+  ANIMATION_CLASS,
+  RENDERED_SELECTOR,
+  extractAnimateDiv,
+  findSanitizedLeftover,
+  IExtractedAnimation
+} from './notebookAnimate';
 import Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
 import '@svgdotjs/svg.js';
@@ -17,6 +24,8 @@ const WINDOWED_CLASS = 'sliveshow-windowed';
 const DECK_CLASS = 'sliveshow-deck';
 /** Marks that panel's tab, so the presenter can tell the two views apart. */
 const DECK_TAB_CLASS = 'sliveshow-deck-tab';
+/** Marks the deck's notebook while it is presenting rather than editing. */
+const SLIDE_MODE_CLASS = 'sliveshow-slide-mode';
 
 /**
  * Description of a third-party Reveal.js plugin to load at runtime.
@@ -62,6 +71,13 @@ interface ISlideshowSession {
   layout: any[];
   /** Cell index -> the `<section>` that cell ended up in. */
   sections: Map<number, HTMLElement>;
+  /** Cell index -> that cell's node inside the deck, to scroll it into view. */
+  cellNodes: Map<number, HTMLElement>;
+  /**
+   * Set just before navigating backwards, so the slide we land on opens at
+   * its end rather than its start and reading up a long slide is continuous.
+   */
+  landAtBottom: boolean;
   /** The deck panel's windowing mode before we turned it off. */
   windowingMode: 'defer' | 'full' | 'none' | 'contentVisibility';
   /** The deck panel's cell viewport, where cell nodes live outside a show. */
@@ -70,6 +86,8 @@ interface ISlideshowSession {
   cleanups: Array<() => void>;
   released: boolean;
   rebuilding: boolean;
+  /** True while the presenter is driving the deck rather than the notebook. */
+  keysOwned: boolean;
 }
 
 /** Resolve after the next animation frame. */
@@ -526,11 +544,14 @@ const plugin = (
       container: null,
       layout: [],
       sections: new Map<number, HTMLElement>(),
+      cellNodes: new Map<number, HTMLElement>(),
+      landAtBottom: false,
       windowingMode: deck.content.notebookConfig.windowingMode,
       viewport: null,
       cleanups: [],
       released: false,
-      rebuilding: false
+      rebuilding: false,
+      keysOwned: true
     };
     sessions.set(deck, session);
 
@@ -569,6 +590,7 @@ const plugin = (
    * tears the session down.
    */
   const wireWindowedSession = (session: ISlideshowSession): void => {
+    trackKeyOwnership(session);
     const notebook = session.source.content;
 
     const onActiveCellChanged = () => {
@@ -614,6 +636,281 @@ const plugin = (
   };
 
   /**
+   * Per-cell audio settings become `data-audio-*` attributes on the slide or
+   * fragment, which is what rajgoel's audio-slideshow plugin reads.
+   *
+   * `audio_src` names a recording, `audio_text` the narration to send to a
+   * text-to-speech service, and `audio_advance` how long to wait before moving
+   * on (negative to stay put). All three are set per cell in SLIDESHOW TOOLS.
+   */
+  const applyAudioMetadata = (el: HTMLElement, cell: any): void => {
+    const meta = cell?.model?.metadata?.slideshow ?? {};
+    const set = (attr: string, value: any): void => {
+      if (
+        value !== undefined &&
+        value !== null &&
+        String(value).trim() !== ''
+      ) {
+        el.setAttribute(attr, String(value));
+      }
+    };
+    set('data-audio-src', meta.audio_src);
+    set('data-audio-text', meta.audio_text);
+    set('data-audio-advance', meta.audio_advance);
+  };
+
+  /** The text of a cell, as a listener would hear it read out. */
+  const cellText = (cell: any): string => {
+    const rendered = cell?.node?.querySelector(RENDERED_SELECTOR);
+    const text = (rendered?.textContent ?? '').trim();
+    if (text) {
+      return text;
+    }
+    try {
+      return String(cell.model.sharedModel.getSource() ?? '').trim();
+    } catch (e) {
+      return '';
+    }
+  };
+
+  /**
+   * Hang a slide's speaker notes off its section as `<aside class="notes">`.
+   *
+   * Cells whose slide type is "Notes" used to fall through to the default
+   * branch and were shown ON the slide, which is not what the slide type
+   * means anywhere else in Jupyter. They are now notes proper: hidden during
+   * the show, and exactly where Reveal's `getSlideNotes()` looks — so the
+   * audio-slideshow plugin can read them as the narration for that slide, and
+   * a speaker view would find them too.
+   */
+  const attachNotes = (section: HTMLElement, notes: string[]): void => {
+    if (!notes.length) {
+      return;
+    }
+    const aside = document.createElement('aside');
+    aside.className = 'notes';
+    aside.textContent = notes.join('\n\n');
+    section.appendChild(aside);
+  };
+
+  /**
+   * Number the fragments on a slide the way Reveal would.
+   *
+   * Reveal assigns `data-fragment-index` when it syncs, which happens after
+   * plugins have initialised — and audio-slideshow looks the attribute up
+   * during its own init, so without this it finds no fragments and every
+   * fragment is silent. The order written here is the DOM order Reveal uses
+   * anyway, so nothing else changes.
+   */
+  const indexFragments = (section: HTMLElement): void => {
+    Array.from(section.querySelectorAll('.fragment')).forEach((el, i) => {
+      if (!el.hasAttribute('data-fragment-index')) {
+        el.setAttribute('data-fragment-index', String(i));
+      }
+    });
+  };
+
+  /**
+   * Put the deck panel into SLIDE MODE.
+   *
+   * Prof. Chan, 21/9: "introduce one more slide mode (other than the edit and
+   * display mode) where the short-cut key can be separated, and there is no
+   * need to highlight cell."
+   *
+   * Every one of JupyterLab's 57 notebook shortcuts is bound with a selector
+   * starting `.jp-Notebook.jp-mod-commandMode` or `.jp-Notebook.jp-mod-
+   * editMode`, so dropping the `jp-Notebook` class from the deck's notebook
+   * node takes the whole set out of play in this panel — and only in this
+   * panel — without touching the key map. Reveal and chalkboard, which listen
+   * on the document, are unaffected, so C, B, DEL and the arrows work
+   * wherever the click landed.
+   *
+   * Cells also go read-only, so a stray keystroke cannot edit the lecture
+   * that is on screen. The notebook on the left is a separate widget and
+   * stays completely live: that is the whole point of the split.
+   */
+  /**
+   * Make the deck's editors read-only WITHOUT touching the document.
+   *
+   * `cell.readOnly = true` looks like the obvious call and is a trap: it can
+   * write `editable: false` into the cell's metadata, and the deck shares its
+   * model with the notebook on the left — so setting it here turned the
+   * notebook the presenter is typing into read-only as well, and would have
+   * saved that metadata into their file. The editor's own option is a view
+   * setting on this copy alone.
+   */
+  const setDeckEditable = (notebook: any, editable: boolean): void => {
+    notebook.widgets.forEach((cell: any) => {
+      try {
+        cell.editor?.setOption('readOnly', !editable);
+      } catch (e) {
+        /* no editor yet (rendered markdown, placeholder): nothing to lock */
+      }
+    });
+    // Read-only is not enough: CodeMirror keeps `contenteditable="true"`, so
+    // the editor still takes focus on a click — and Reveal's own key handler
+    // drops EVERY key while `document.activeElement.isContentEditable`, before
+    // it ever consults our keyboardCondition. That is why clicking a code cell
+    // on a slide killed the deck's keyboard (chalkboard's C, the arrows) no
+    // matter what the condition returned. Taking the editors out of the focus
+    // order is the only thing that actually restores it.
+    notebook.node.querySelectorAll('.cm-content').forEach((editor: Element) => {
+      if (editable) {
+        editor.setAttribute('contenteditable', 'true');
+        editor.removeAttribute('tabindex');
+      } else {
+        editor.setAttribute('contenteditable', 'false');
+        editor.setAttribute('tabindex', '-1');
+      }
+    });
+  };
+
+  const applySlideMode = (session: ISlideshowSession): void => {
+    const notebook = session.deck.content;
+    const node = notebook.node;
+    node.classList.remove('jp-Notebook');
+    node.classList.add(SLIDE_MODE_CLASS);
+
+    setDeckEditable(notebook, false);
+
+    // CodeMirror re-asserts contenteditable when it redraws, and a cell can be
+    // created after slide mode is applied, so anything in the deck that still
+    // manages to take focus is pushed straight back out. Without this the
+    // deck's keyboard dies again the first time an editor repaints.
+    const refuseFocus = (event: FocusEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target?.isContentEditable && node.contains(target)) {
+        target.setAttribute('contenteditable', 'false');
+        target.blur();
+      }
+    };
+    node.addEventListener('focusin', refuseFocus, true);
+
+    // CodeMirror creates and redraws editors lazily, so cells that render
+    // after slide mode is applied come back focusable. Re-lock them as they
+    // appear rather than leaning on the focus guard alone.
+    const lockNewEditors = new MutationObserver(() => {
+      node.querySelectorAll('.cm-content').forEach((editor: Element) => {
+        if (editor.getAttribute('contenteditable') !== 'false') {
+          editor.setAttribute('contenteditable', 'false');
+          editor.setAttribute('tabindex', '-1');
+        }
+      });
+    });
+    lockNewEditors.observe(node, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['contenteditable']
+    });
+
+    // A double-click on a rendered markdown cell unrenders it back into its
+    // source. That is right in a notebook and wrong on a slide, so stop the
+    // event before Reveal's container hands it to the notebook underneath.
+    // Only dblclick: mousedown still reaches JupyterLab, which is what makes
+    // clicking the panel activate its tab.
+    const swallowDoubleClick = (event: Event): void => {
+      event.stopPropagation();
+      event.preventDefault();
+    };
+    session.container?.addEventListener('dblclick', swallowDoubleClick, true);
+
+    if (node.dataset.sliveshowSlideMode === 'on') {
+      // Rebuilt deck: the way back is already registered, but the guard and
+      // the observer above were re-created, so hand them their own teardown.
+      node.removeEventListener('focusin', refuseFocus, true);
+      node.addEventListener('focusin', refuseFocus, true);
+      session.cleanups.push(() => lockNewEditors.disconnect());
+      return;
+    }
+    node.dataset.sliveshowSlideMode = 'on';
+    session.cleanups.push(() => {
+      node.classList.add('jp-Notebook');
+      node.classList.remove(SLIDE_MODE_CLASS);
+      delete node.dataset.sliveshowSlideMode;
+      node.removeEventListener('focusin', refuseFocus, true);
+      lockNewEditors.disconnect();
+      setDeckEditable(notebook, true);
+      session.container?.removeEventListener(
+        'dblclick',
+        swallowDoubleClick,
+        true
+      );
+    });
+  };
+
+  /**
+   * Publish where the deck sits on the page, as CSS variables.
+   *
+   * The chalkboard records a stroke at `event.pageX/pageY` and paints it into
+   * a canvas sized to the whole window. Full screen the canvas starts at page
+   * (0, 0), so those are the same coordinates. In a split panel the canvas
+   * starts at the panel's corner, so every stroke landed one panel-width to
+   * the right and was clipped away — "cannot draw with Chalkboard for beside
+   * notebook mode" (Prof. Chan, 21/9). style/base.css shifts the canvases
+   * back by these offsets, which puts canvas (0,0) at page (0,0) again while
+   * the overlay still clips to the panel.
+   */
+  const trackDeckGeometry = (session: ISlideshowSession): void => {
+    const container = session.container;
+    if (!container) {
+      return;
+    }
+    const apply = (): void => {
+      const box = container.getBoundingClientRect();
+      container.style.setProperty('--sliveshow-deck-left', `${box.left}px`);
+      container.style.setProperty('--sliveshow-deck-top', `${box.top}px`);
+    };
+    apply();
+
+    // Re-measure just before the chalkboard sees the press, so a panel that
+    // moved (split bar dragged, sidebar collapsed) is never drawn on stale
+    // numbers.
+    const onPointerDown = (): void => apply();
+    document.addEventListener('pointerdown', onPointerDown, true);
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(apply);
+      observer.observe(container);
+      observer.observe(document.body);
+    }
+    window.addEventListener('resize', apply);
+
+    session.cleanups.push(() => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      observer?.disconnect();
+      window.removeEventListener('resize', apply);
+    });
+  };
+
+  /** Hand the keyboard to whichever of the two panels was clicked last. */
+  const trackKeyOwnership = (session: ISlideshowSession): void => {
+    const owns = (target: EventTarget | null): boolean =>
+      !!(
+        target instanceof Node &&
+        (session.container?.contains(target) ||
+          session.deck.node.contains(target))
+      );
+    const onPointerDown = (event: Event): void => {
+      session.keysOwned = owns(event.target);
+    };
+    const onFocusIn = (event: Event): void => {
+      if (owns(event.target)) {
+        session.keysOwned = true;
+      } else if (session.source.node.contains(event.target as Node)) {
+        session.keysOwned = false;
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('focusin', onFocusIn, true);
+    session.cleanups.push(() => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('focusin', onFocusIn, true);
+    });
+  };
+
+  /**
    * Build the Reveal deck inside `session.deck`.
    *
    * The deck is inserted into the notebook panel's own content node and the
@@ -629,6 +926,7 @@ const plugin = (
     const panel = session.deck;
     session.layout = [];
     session.sections = new Map<number, HTMLElement>();
+    session.cellNodes = new Map<number, HTMLElement>();
     const slides: any[] = [];
 
     await panel.context.ready;
@@ -636,6 +934,8 @@ const plugin = (
 
     const cells = await getCells(panel);
     const layout = session.layout;
+    /** Speaker-note text gathered for each slide, keyed by its layout item. */
+    const notesFor = new Map<any, string[]>();
 
     cells.forEach((cell, index) => {
       const slideType = cell.model.metadata.slideshow?.slide_type;
@@ -698,6 +998,18 @@ const plugin = (
         case SlideType.SKIP: {
           break;
         }
+        case SlideType.NOTES: {
+          // Speaker notes: never shown on the slide. They become the slide's
+          // `<aside class="notes">`, which is what Reveal reads and what the
+          // audio-slideshow plugin narrates.
+          if (layout.length > 0) {
+            const current = layout[layout.length - 1];
+            const collected = notesFor.get(current) ?? [];
+            collected.push(cellText(cell));
+            notesFor.set(current, collected);
+          }
+          break;
+        }
         // no slide type
         default: {
           if (layout.length === 0) {
@@ -746,11 +1058,17 @@ const plugin = (
         slideOuter.appendChild(slideInner);
         addToRevealSlide(slideInner, layout[i]);
         mapCellsToSection(session, layout[i], slideInner);
+        applyAudioMetadata(slideInner, layout[i].cell);
+        attachNotes(slideInner, notesFor.get(layout[i]) ?? []);
+        indexFragments(slideInner);
         slides.push(slideOuter);
       } else if (layout[i] instanceof Subslide) {
         const subslide = document.createElement('section');
         addToRevealSlide(subslide, layout[i]);
         mapCellsToSection(session, layout[i], subslide);
+        applyAudioMetadata(subslide, layout[i].cell);
+        attachNotes(subslide, notesFor.get(layout[i]) ?? []);
+        indexFragments(subslide);
         slides[slides.length - 1].appendChild(subslide);
       }
     }
@@ -793,9 +1111,12 @@ const plugin = (
     // config is spread first so the settings below stay authoritative
     // — disableLayout in particular is load-bearing for our layout.
     const external = await loadRevealPlugins(csSettings.reveal_plugins);
-    const reveal = new Reveal(revealContainer, {
+    // Two of these are real Reveal options that its bundled type definitions
+    // do not describe (`animate`, which the Animate plugin reads, and the
+    // keyCode -> callback form of `keyboard`), so the literal is typed loosely
+    // here rather than sprinkled with directives that shift as options change.
+    const revealOptions: Record<string, unknown> = {
       ...external.config,
-      // @ts-expect-error: required for Animate plugin to work
       animate: {
         autoplay: true
       },
@@ -812,27 +1133,27 @@ const plugin = (
       // Layout/centering is handled by our own CSS in style/base.css.
       disableLayout: true,
       // A windowed deck shares the page with a notebook the presenter is
-      // typing in, and Reveal binds its keyboard shortcuts to the document.
-      // Without this, every space or arrow key pressed on the left would also
-      // drive the slides. Keys reach the deck only while the deck panel is the
-      // active tab, and never while the caret is in an editor inside it. A
-      // fullscreen deck owns the page, so it keeps the usual navigation.
-      keyboardCondition: session.windowed
-        ? () => {
-            if (app.shell.currentWidget !== session.deck) {
-              return false;
-            }
-            const active = document.activeElement as HTMLElement | null;
-            if (!active) {
-              return true;
-            }
-            return (
-              !active.isContentEditable &&
-              !['INPUT', 'TEXTAREA'].includes(active.tagName)
-            );
-          }
-        : null
-    });
+      // typing in, and Reveal binds its keyboard shortcuts to the document, so
+      // without this every key pressed on the left would also drive the
+      // slides. Ownership follows the last click: click the deck and the keys
+      // are the deck's (Reveal's navigation, chalkboard's C and B), click the
+      // notebook and they are the notebook's.
+      //
+      // The earlier version of this also returned false whenever the caret sat
+      // in an editor. That killed the deck's keyboard the moment a slide was
+      // clicked, because clicking a cell focuses CodeMirror — which is why
+      // chalkboard's C worked until the first click and never again
+      // (Prof. Chan, 21/9). Slide mode now keeps editors out of the way
+      // instead, so focus is no longer the wrong thing to test.
+      keyboardCondition: session.windowed ? () => session.keysOwned : null,
+      // Down and up scroll a slide that overflows before they leave it; see
+      // scrollBeforeNavigating(). Everything else keeps Reveal's own binding.
+      keyboard: {
+        38: () => scrollBeforeNavigating(session, false),
+        40: () => scrollBeforeNavigating(session, true)
+      }
+    };
+    const reveal = new Reveal(revealContainer, revealOptions);
     session.reveal = reveal;
 
     await reveal.initialize();
@@ -847,6 +1168,12 @@ const plugin = (
       if (!current) {
         return;
       }
+      if (session.landAtBottom) {
+        // Arrived by scrolling up off the top of the slide below, so open
+        // this one at its end and carry on reading upwards.
+        current.scrollTop = current.scrollHeight;
+        return;
+      }
       current.scrollTop = 0;
       // For vertical (sub-slide) stacks the scrollable element is the
       // parent <section>, so reset that too.
@@ -855,6 +1182,25 @@ const plugin = (
         parent.scrollTop = 0;
       }
     });
+
+    wireScrollControls(session);
+
+    // Down reveals the slide's next fragment before it moves on (Reveal's own
+    // rule). On a slide taller than the panel that fragment can appear below
+    // the fold, so the presenter presses down and sees nothing happen — the
+    // same complaint as the arrows not scrolling. Follow each one as it opens.
+    reveal.on('fragmentshown', (event: any) => {
+      const fragment = event?.fragment as HTMLElement | undefined;
+      const current = reveal.getCurrentSlide() as HTMLElement | undefined;
+      if (fragment && current) {
+        requestAnimationFrame(() => scrollNodeIntoView(current, fragment));
+      }
+    });
+
+    if (session.windowed) {
+      applySlideMode(session);
+      trackDeckGeometry(session);
+    }
 
     if (mode === 'first') {
       reveal.slide(0);
@@ -878,6 +1224,10 @@ const plugin = (
     section: HTMLElement
   ): void => {
     session.sections.set(item.index, section);
+    const node = item.cell?.node as HTMLElement | undefined;
+    if (node) {
+      session.cellNodes.set(item.index, node);
+    }
     item.children?.forEach((child: any) =>
       mapCellsToSection(session, child, section)
     );
@@ -886,7 +1236,100 @@ const plugin = (
     );
   };
 
-  /** Move the deck to the slide holding `cellIndex` (or the nearest before). */
+  /**
+   * The element that scrolls for the slide currently on screen.
+   *
+   * A slide taller than the panel scrolls inside its own `<section>`
+   * (`overflow-y: auto` in `style/base.css`), so that section — not the
+   * window — is what has to move.
+   */
+  const scrollerFor = (session: ISlideshowSession): HTMLElement | null => {
+    const current = session.reveal?.getCurrentSlide() as
+      HTMLElement | undefined;
+    return current ?? null;
+  };
+
+  /** True when `el` has content hidden below (or above) what it shows. */
+  const canScroll = (el: HTMLElement | null, down: boolean): boolean => {
+    if (!el) {
+      return false;
+    }
+    return down
+      ? el.scrollTop + el.clientHeight < el.scrollHeight - 2
+      : el.scrollTop > 2;
+  };
+
+  /**
+   * How many fragments of `section` have to be shown for `node` to be readable.
+   *
+   * A cell marked "fragment" becomes a `.fragment`, which Reveal keeps hidden
+   * until it is stepped through. Jumping to a slide without also stepping its
+   * fragments therefore lands on a slide that looks empty or half-written —
+   * the "Generations of programming languages" slide in the lecture is five
+   * fragments under one heading, so it showed the heading and nothing else.
+   *
+   * Returns the index to pass to `Reveal.slide()`: -1 for "none of them".
+   */
+  const fragmentIndexFor = (
+    section: HTMLElement,
+    node: HTMLElement | undefined
+  ): number => {
+    const fragments = Array.from(
+      section.querySelectorAll('.fragment')
+    ) as HTMLElement[];
+    if (!fragments.length) {
+      return -1;
+    }
+    if (!node) {
+      return fragments.length - 1;
+    }
+    let index = -1;
+    fragments.forEach((fragment, i) => {
+      const atOrBefore =
+        fragment === node ||
+        fragment.contains(node) ||
+        // eslint-disable-next-line no-bitwise
+        (fragment.compareDocumentPosition(node) &
+          Node.DOCUMENT_POSITION_FOLLOWING) !==
+          0;
+      if (atOrBefore) {
+        const declared = Number(fragment.getAttribute('data-fragment-index'));
+        index = Math.max(index, Number.isNaN(declared) ? i : declared);
+      }
+    });
+    return index;
+  };
+
+  /** Scroll `section` so `node` is in view, without moving the page. */
+  const scrollNodeIntoView = (
+    section: HTMLElement,
+    node: HTMLElement | undefined
+  ): void => {
+    if (!node || section.scrollHeight <= section.clientHeight + 2) {
+      return;
+    }
+    const target = node.getBoundingClientRect();
+    const frame = section.getBoundingClientRect();
+    if (target.top >= frame.top && target.bottom <= frame.bottom) {
+      return;
+    }
+    const delta = target.top - frame.top - 16;
+    section.scrollTop = Math.max(
+      0,
+      Math.min(delta + section.scrollTop, section.scrollHeight)
+    );
+  };
+
+  /**
+   * Move the deck to `cellIndex` (or the nearest cell before it).
+   *
+   * Landing on the right `<section>` is only the first third of the job. The
+   * cell may be a fragment Reveal is still hiding, and it may be a thousand
+   * pixels below the top of a slide that scrolls — in either case the slide
+   * changes but the presenter sees nothing move, or sees a slide that looks
+   * blank. So the fragments are stepped to that cell, and the section is
+   * scrolled until the cell is on screen.
+   */
   const gotoCell = (session: ISlideshowSession, cellIndex: number): void => {
     const reveal = session.reveal;
     if (!reveal) {
@@ -900,12 +1343,88 @@ const plugin = (
     if (!section) {
       return;
     }
+    const node = session.cellNodes.get(index);
     try {
       const indices = reveal.getIndices(section as any);
-      reveal.slide(indices.h, indices.v);
+      reveal.slide(indices.h, indices.v, fragmentIndexFor(section, node));
     } catch (e) {
       console.warn('sliveshow: could not navigate to cell', cellIndex, e);
+      return;
     }
+    // After `slidechanged`, which resets the slide to its top.
+    requestAnimationFrame(() => {
+      if (!session.released) {
+        scrollNodeIntoView(section, node);
+      }
+    });
+  };
+
+  /**
+   * Make the vertical arrows scroll a slide that is taller than the panel
+   * before they leave it.
+   *
+   * Reveal's up/down move between sub-slides and nothing else, so on a slide
+   * whose content overflows — a long derivation, a figure plus its output —
+   * pressing down skipped straight past everything below the fold, and the
+   * arrow appeared to do nothing at all. Down now scrolls to the end of the
+   * slide first and only then moves on; up does the reverse and lands on the
+   * *bottom* of the slide above, so reading backwards is continuous.
+   *
+   * Horizontal navigation is untouched: left/right still change slide at once,
+   * which is what they are for.
+   */
+  const scrollBeforeNavigating = (
+    session: ISlideshowSession,
+    down: boolean
+  ): void => {
+    const reveal = session.reveal;
+    if (!reveal) {
+      return;
+    }
+    if (reveal.isOverview?.()) {
+      down ? reveal.down() : reveal.up();
+      return;
+    }
+    const scroller = scrollerFor(session);
+    if (canScroll(scroller, down) && scroller) {
+      const step = Math.max(80, scroller.clientHeight * 0.85);
+      scroller.scrollTop += down ? step : -step;
+      return;
+    }
+    if (!down) {
+      session.landAtBottom = true;
+    }
+    down ? reveal.down() : reveal.up();
+    session.landAtBottom = false;
+  };
+
+  /** Route the on-screen up/down controls through the same rule as the keys. */
+  const wireScrollControls = (session: ISlideshowSession): void => {
+    const container = session.container;
+    if (!container) {
+      return;
+    }
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const control = target?.closest?.(
+        '.navigate-down, .navigate-up'
+      ) as HTMLElement | null;
+      if (!control) {
+        return;
+      }
+      const down = control.classList.contains('navigate-down');
+      const scroller = scrollerFor(session);
+      if (!canScroll(scroller, down)) {
+        return; // let Reveal's own handler change the slide
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      scrollBeforeNavigating(session, down);
+    };
+    container.addEventListener('click', onClick, true);
+    session.cleanups.push(() =>
+      container.removeEventListener('click', onClick, true)
+    );
   };
 
   /**
@@ -959,6 +1478,7 @@ const plugin = (
     }
     session.container = null;
     session.sections = new Map<number, HTMLElement>();
+    session.cellNodes = new Map<number, HTMLElement>();
   };
 
   /**
@@ -1015,6 +1535,62 @@ const plugin = (
     await teardownDeck(session);
   };
 
+  /**
+   * Put the raw animation block where it belongs inside a rendered markdown
+   * cell, leaving the rest of the cell untouched.
+   *
+   * Three possible targets, in order of confidence:
+   *  1. the container the notebook-view plugin already injected — it marks
+   *     exactly where the block goes, and swapping it also hands the block
+   *     over from the standalone driver to Reveal's Animate plugin;
+   *  2. whatever JupyterLab's sanitizer left of the block;
+   *  3. nothing recognisable — append, so the animation is at least present.
+   */
+  const placeAnimationInCell = (
+    cellNode: HTMLElement,
+    extracted: IExtractedAnimation
+  ): void => {
+    // Reveal fades anything classed `fragment` to opacity 0 until its step,
+    // and for SVG that CSS beats the attributes svg.js animates — so an
+    // element that is both a fragment and animated simply never appears
+    // (Prof. Chan, 21/9). `.custom` is Reveal's own opt-out from that fade;
+    // add it so the animation owns the element's opacity, and let the config's
+    // `setup` block decide what it looks like before its step runs.
+    extracted.div
+      .querySelectorAll('.fragment')
+      .forEach(el => el.classList.add('custom'));
+
+    const injected = cellNode.querySelector(`.${ANIMATION_CLASS}`);
+    if (injected) {
+      injected.replaceWith(extracted.div);
+    } else {
+      const rendered = cellNode.querySelector(
+        RENDERED_SELECTOR
+      ) as HTMLElement | null;
+      const leftover = rendered
+        ? findSanitizedLeftover(rendered, extracted.kind)
+        : null;
+      if (leftover) {
+        leftover.replaceWith(extracted.div);
+      } else {
+        (rendered ?? cellNode).appendChild(extracted.div);
+      }
+    }
+
+    // Leave exactly one animation in the cell. The notebook view injects its
+    // own container whenever the cell re-renders, and under jupyterlab-myst
+    // that can land after the deck has placed this one — two drawings on the
+    // slide, only one of them with the fragment fix. This block is now the
+    // only one; notebookAnimate.ts stops injecting while the cell is on a
+    // slide, and this clears anything that arrived before it did.
+    cellNode.querySelectorAll(`.${ANIMATION_CLASS}`).forEach(el => el.remove());
+    Array.from(cellNode.querySelectorAll('[data-animate]')).forEach(el => {
+      if (el !== extracted.div && !el.contains(extracted.div)) {
+        el.remove();
+      }
+    });
+  };
+
   const addToRevealSlide = (slide: any, item: any) => {
     if (
       item.cell.model.type === 'code' &&
@@ -1023,61 +1599,22 @@ const plugin = (
       item.cell.node.classList.add('hide-code');
     }
 
-    // Handle markdown cells with animation directives
+    // Animation blocks: keep the WHOLE cell.
+    //
+    // This used to lift the `[data-animate]` element out of the raw source
+    // into a container of its own and drop everything else in the cell, so a
+    // slide whose cell held a heading, a paragraph and an animation showed
+    // only the animation (Prof. Chan, 21/9: "Animated math title is not
+    // show"). The live cell node already carries the heading and the prose —
+    // and, thanks to the notebook-view plugin, usually an injected animation
+    // as well — so the fix is to place the raw block inside that node and
+    // then treat the cell like any other.
     if (item.cell.model.type === 'markdown') {
-      const src = item.cell.model.sharedModel.getSource();
-
-      // Fix (Commit 2): handle raw data-animate HTML in markdown cells
-      // bypasses JupyterLab's HTML sanitizer which strips data-animate
-      if (src.includes('data-animate')) {
-        const animWrapper = document.createElement('div');
-        animWrapper.innerHTML = src;
-        const animDiv = animWrapper.querySelector('[data-animate]');
-        if (animDiv) {
-          const container = document.createElement('div');
-          container.appendChild(animDiv);
-          item.children?.forEach((child: any) => {
-            addToRevealSlide(container, child);
-          });
-          slide.appendChild(container);
-          item.fragments?.forEach((fragment: any) => {
-            const fragContainer = document.createElement('div');
-            fragContainer.classList.add('fragment');
-            addToRevealSlide(fragContainer, fragment);
-            slide.appendChild(fragContainer);
-          });
-          return;
-        }
-      }
-
-      // Fix (Commit 3): handle {svg-animate} MyST directive in markdown cells
-      // Allows the same notebook source to work in both the Reveal.js slideshow
-      // and a mystmd / Jupyter Book 2 build without duplication.
-      // Parses :::{svg-animate} ... ::: and wraps the body in a data-animate div
-      // so the Rajgoel animate plugin handles it identically to raw data-animate HTML.
-      if (src.includes(':::{svg-animate}')) {
-        const directiveMatch = src.match(
-          /:::\{svg-animate\}[^\n]*\n(?::[a-z-]+:[^\n]*\n)*([\s\S]*?):::/
-        );
-        if (directiveMatch) {
-          const body = directiveMatch[1].trim();
-          const animDiv = document.createElement('div');
-          animDiv.setAttribute('data-animate', '');
-          animDiv.innerHTML = body;
-          const container = document.createElement('div');
-          container.appendChild(animDiv);
-          item.children?.forEach((child: any) => {
-            addToRevealSlide(container, child);
-          });
-          slide.appendChild(container);
-          item.fragments?.forEach((fragment: any) => {
-            const fragContainer = document.createElement('div');
-            fragContainer.classList.add('fragment');
-            addToRevealSlide(fragContainer, fragment);
-            slide.appendChild(fragContainer);
-          });
-          return;
-        }
+      const extracted = extractAnimateDiv(
+        item.cell.model.sharedModel.getSource()
+      );
+      if (extracted) {
+        placeAnimationInCell(item.cell.node, extracted);
       }
     }
 
@@ -1101,6 +1638,7 @@ const plugin = (
     item.fragments?.forEach((fragment: any) => {
       const fragContainer = document.createElement('div');
       fragContainer.classList.add('fragment');
+      applyAudioMetadata(fragContainer, fragment.cell);
       switch (fragment.transition) {
         case Transition.SLIDE: {
           fragContainer.classList.add(

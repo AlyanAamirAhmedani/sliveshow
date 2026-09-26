@@ -64,12 +64,12 @@ To start a slideshow, use the **Sliveshow** menu → **Start from first cell (fu
 notebook instead of taking over the screen, so you can keep working on the
 notebook while the deck is up:
 
-|                          |                                              |
-| ------------------------ | -------------------------------------------- |
-| **Type in a cell**       | the slide shows it as you type               |
-| **Run a cell**           | the output appears on the slide              |
-| **Select a cell**        | the deck jumps to the slide that cell is on  |
-| **Add or delete a cell** | the deck rebuilds itself, keeping your place |
+|                          |                                                     |
+| ------------------------ | --------------------------------------------------- |
+| **Type in a cell**       | the slide shows it as you type                      |
+| **Run a cell**           | the output appears on the slide                     |
+| **Select a cell**        | the deck jumps to it — see "Following a cell" below |
+| **Add or delete a cell** | the deck rebuilds itself, keeping your place        |
 
 Nothing is exported and there is no preview to reload, because the panel is a
 **second view of the same notebook**: one document, one model, one kernel. Both
@@ -83,9 +83,62 @@ Close the panel, or use **Exit slideshow**, to stop. The notebook itself is
 never modified: the panel is the copy, so closing it leaves your notebook
 exactly as it was.
 
-Keyboard shortcuts drive the slides only while the slides panel is the active
-tab, so typing in the notebook can never navigate the deck. The deck's tab is
-marked with a ▶ so you can tell the two views apart.
+While the slides panel is open it is in **slide mode**: JupyterLab's notebook
+shortcuts are out of play there, cells are not editable and not highlighted, so
+`C`, `B`, `Esc` and the arrow keys belong to the slideshow and its plugins. The
+keyboard follows your last click — click the slides to drive them, click the
+notebook to go back to editing. The deck's tab is marked with a ▶ so you can
+tell the two views apart.
+
+**Esc** shows Reveal's slide overview in either mode; press it again to go back.
+
+#### Following a cell
+
+Clicking a cell in the notebook does three things, not one: the deck goes to
+that cell's slide, steps the slide's fragments open as far as that cell, and
+scrolls the slide so the cell is on screen. Without the last two, a cell marked
+`fragment` would leave the slide looking blank — Reveal keeps fragments hidden
+until they are stepped — and a cell near the bottom of a long slide would put
+you at the top of it with nothing appearing to have happened.
+
+#### Slides longer than the panel
+
+A slide with a large figure, or a cell with a lot of output, is often taller
+than the panel it is in. **Down** scrolls such a slide to its end before it
+moves to the next one, and **up** scrolls back and lands on the _bottom_ of the
+slide above, so reading in either direction is continuous. The on-screen arrows
+follow the same rule. Left and right still change slide immediately. A fragment
+that opens below the fold is scrolled to as it appears.
+
+### Animating part of a formula or drawing
+
+Reveal hides anything classed `fragment` until its step, and on an SVG that CSS
+beats the attributes the animation writes — so an element that is both a
+fragment and animated would never appear. sliveshow adds Reveal's own `.custom`
+opt-out to fragments inside a `data-animate` block, which hands their opacity to
+the animation. Put the "before" state in the config's `setup` section rather
+than relying on Reveal to hide it:
+
+```html
+<div data-animate>
+  <svg
+    class="fragment"
+    xmlns="http://www.w3.org/2000/svg"
+    width="400"
+    height="200"
+  >
+    <circle id="c" cx="200" cy="100" r="40" style="fill:steelblue" />
+  </svg>
+  <!--
+{
+  "setup":     [{ "element": "#c", "modifier": "attr", "parameters": [{ "opacity": 0 }] }],
+  "animation": [[{ "element": "#c", "modifier": "attr", "parameters": [{ "opacity": 1, "r": 70 }], "duration": 600 }]]
+}
+--></div>
+```
+
+A markdown cell that holds an animation keeps everything else in it — headings,
+prose, other blocks all stay on the slide alongside the animation.
 
 ---
 
@@ -192,6 +245,62 @@ sliveshow can load any [Reveal.js plugin](https://revealjs.com/plugins/) at runt
 A plugin that fails to load is reported in the browser console and skipped, so an unreachable CDN can never stop a lecture from starting.
 
 **Chalkboard** is preconfigured (disabled by default): enable it and press **C** to annotate the current slide or **B** for a full chalkboard — ideal for working through an example live. Drag to draw, right-drag to erase, **DEL** to clear.
+
+---
+
+### Narration and self-advancing slides
+
+With rajgoel's **audio-slideshow** plugin enabled in `reveal_plugins`, a deck
+can play a recording for each slide and move itself on when the audio ends —
+useful for a talk that runs unattended at a booth, or for a lecture a student
+watches later.
+
+Per cell, in **SLIDESHOW TOOLS**:
+
+| Field                  | What it does                                                     |
+| ---------------------- | ---------------------------------------------------------------- |
+| **Audio file**         | plays this file on that slide or fragment (`data-audio-src`)     |
+| **Narration**          | spoken by the text-to-speech service instead (`data-audio-text`) |
+| **Advance after (ms)** | how long to wait before moving on; negative to stay              |
+
+And there is a shortcut that needs no metadata at all: a cell whose **slide
+type is Notes** becomes that slide's speaker notes rather than appearing on it,
+and with `defaultNotes: true` the plugin narrates those notes. So writing the
+narration is just writing a notes cell under each slide.
+
+Text-to-speech needs a `textToSpeechURL` in the plugin's config; without one,
+slides with no audio file simply hold for `defaultDuration` seconds and then
+advance.
+
+> Leave `defaultAudios` set to `true`. It looks like the setting to turn off
+> when a deck has no recordings, but in the plugin the silent-placeholder
+> fallback is only reachable from that branch — switch it off and slides
+> without an audio file get no audio source at all, so nothing ever ends and
+> the deck never advances. With it on, the plugin probes for `audio/0.0.webm`,
+> gets a 404, and falls back to silence of `defaultDuration`, which is what
+> makes the show move. Expect one 404 (or 405 from a Jupyter server) per slide
+> in the browser console because of that probe — it is how the plugin decides
+> there is no recording, not a fault. Configure it in the **JSON Settings Editor**, not the form editor:
+
+```json
+"reveal_plugins": [
+  {
+    "name": "RevealAudioSlideshow",
+    "script": "https://cdn.jsdelivr.net/npm/reveal.js-plugins@latest/audio-slideshow/plugin.js",
+    "config": { "audio": { "defaultAudios": true, "defaultNotes": true, "advance": 0 } },
+    "enabled": true
+  }
+]
+```
+
+Speaker notes are hidden during the show in both modes.
+
+`autoplay` governs the **first** slide only: leave it `false` and the audio
+player waits for one click, after which every following slide plays and
+advances by itself. That is deliberate — browsers block sound that starts
+without a user gesture anyway, so a deck that must run unattended needs both
+`"autoplay": true` and a kiosk-mode browser started with
+`--autoplay-policy=no-user-gesture-required`.
 
 ---
 

@@ -22,13 +22,13 @@ import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { ILatexTypesetter } from '@jupyterlab/rendermime';
 import { PLUGIN_ID } from './constants';
 
-const ANIMATION_CLASS = 'sliveshow-notebook-animation';
+export const ANIMATION_CLASS = 'sliveshow-notebook-animation';
 
 // The rendered-markdown container differs by renderer: stock JupyterLab uses
 // `.jp-RenderedMarkdown`, while jupyterlab-myst (used on DIVE) renders into a
 // `.jp-RenderedHTMLCommon.not-prose` node without the markdown class. Both
 // share jp-RenderedHTMLCommon; keep the specific class first for stock Lab.
-const RENDERED_SELECTOR = '.jp-RenderedMarkdown, .jp-RenderedHTMLCommon';
+export const RENDERED_SELECTOR = '.jp-RenderedMarkdown, .jp-RenderedHTMLCommon';
 
 // Diagnostic logging. Silent by default; the integration bugs found on the
 // DIVE hub (re-render wipes, renderer differences, stale bundles) were all
@@ -46,7 +46,7 @@ const log = (...args: any[]): void => {
  * it came from — the two syntaxes leave completely different things behind in
  * the rendered output, so the injection site is found differently for each.
  */
-interface IExtractedAnimation {
+export interface IExtractedAnimation {
   div: HTMLElement;
   kind: 'html' | 'directive';
 }
@@ -56,7 +56,7 @@ interface IExtractedAnimation {
  * `<div data-animate>` element. Mirrors the two branches of
  * `addToRevealSlide` in plugin.ts (raw HTML and {svg-animate} directive).
  */
-const extractAnimateDiv = (src: string): IExtractedAnimation | null => {
+export const extractAnimateDiv = (src: string): IExtractedAnimation | null => {
   if (src.includes('data-animate')) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = src;
@@ -101,7 +101,7 @@ const topLevelBlock = (rendered: HTMLElement, el: Element): Element => {
  *   way the rendered output is the only top-level block mentioning
  *   `svg-animate`, so match on that and replace the whole block.
  */
-const findSanitizedLeftover = (
+export const findSanitizedLeftover = (
   rendered: HTMLElement,
   kind: 'html' | 'directive'
 ): Element | null => {
@@ -161,6 +161,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
         disposeHandle(cell);
         if (cell.isDisposed || !cell.rendered) {
           log('process: cell disposed or unrendered, skipping');
+          return;
+        }
+        // The cell is on a slide: the slideshow has already placed the
+        // animation inside it (plugin.ts, placeAnimationInCell) and owns that
+        // node until the show ends. Injecting here as well leaves the slide
+        // with two copies of the drawing, and the copy this side injects has
+        // not had Reveal's `.custom` opt-out applied to its fragments — so it
+        // is also the one that never appears. Any DOM change inside the deck
+        // can wake this observer, which is exactly when it used to happen.
+        if (cell.node.closest('.reveal')) {
+          log('process: cell is on a slide, leaving it to the slideshow');
           return;
         }
         const rendered = cell.node.querySelector(
