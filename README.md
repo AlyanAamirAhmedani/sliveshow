@@ -54,6 +54,12 @@ Code cell input can be hidden via **Hide Code Cell**, showing only the output.
 
 To start a slideshow, use the **Sliveshow** menu → **Start from first cell (full screen)** or **Start from current cell (full screen)**. To exit, press Escape or use **Exit slideshow**.
 
+Code cells keep their prompt on the slides, as in the notebook: `[*]` while a
+cell is running, `[3]` once it has run. In full screen the keys belong to the
+slideshow once you click a slide, so B, X, D D and the other notebook shortcuts
+no longer insert, cut or delete cells behind it. Typing into a code cell,
+**Shift+Enter** to run it and **I, I** to interrupt it still work.
+
 ![Start slideshow](https://github.com/AlyanAamirAhmedani/sliveshow/blob/main/Demo/start_slideshow.png?raw=true)
 
 ---
@@ -87,8 +93,9 @@ While the slides panel is open it is in **slide mode**: JupyterLab's notebook
 shortcuts are out of play there, cells are not editable and not highlighted, so
 `C`, `B`, `Esc` and the arrow keys belong to the slideshow and its plugins. The
 keyboard follows your last click — click the slides to drive them, click the
-notebook to go back to editing. The deck's tab is marked with a ▶ so you can
-tell the two views apart.
+notebook to go back to editing. When the panel opens, the notebook keeps the
+focus, so you can carry on typing straight away. The deck's tab is marked with
+a ▶ so you can tell the two views apart.
 
 **Esc** shows Reveal's slide overview in either mode; press it again to go back.
 
@@ -109,6 +116,55 @@ moves to the next one, and **up** scrolls back and lands on the _bottom_ of the
 slide above, so reading in either direction is continuous. The on-screen arrows
 follow the same rule. Left and right still change slide immediately. A fragment
 that opens below the fold is scrolled to as it appears.
+
+### Styling the slides of one folder: `sliveshow.css`
+
+Save a stylesheet called `sliveshow.css` next to a notebook and it styles that
+notebook's slides, and nothing else. Its rules apply inside the deck only, and
+only while the deck is showing: the notebook beside it, the rest of JupyterLab
+and decks from other folders are untouched, and the styles go when the show
+ends. Use it for a lecture's logo, colours or fonts, rather than a `<style>`
+injected from a cell, which restyles every notebook on the page.
+
+```css
+/* sliveshow.css, in the same folder as the notebook */
+:root {
+  --accent: #b5179e;
+}
+
+h1,
+h2 {
+  color: var(--accent);
+}
+
+/* a logo in the corner of every slide, next to this file */
+.reveal {
+  background-image: url(logo.png);
+  background-repeat: no-repeat;
+  background-position: right 24px top 16px;
+  background-size: 96px;
+}
+
+/* slides without the [ ] prompts */
+.jp-InputPrompt,
+.jp-OutputPrompt {
+  display: none;
+}
+```
+
+- Selectors are looked for inside the deck, so `h1` means the slides'
+  headings. A selector that starts with `.reveal` means this deck, so CSS
+  written against sliveshow's own classes keeps working; `:root`, `html` and
+  `body` mean the whole deck.
+- Relative `url()`s are read from the stylesheet's folder, so images and fonts
+  can sit next to it.
+- Save the file and the open slides restyle in place. With the slides beside
+  the notebook and `sliveshow.css` open in an editor, styling is live.
+- sliveshow's own layout rules (slide padding, the width of the content
+  column) are `!important`; to change those, mark yours `!important` too.
+- `@import` is not supported: keep the rules in the one file.
+- The file name is a setting, **Settings → Sliveshow → Slide stylesheet**.
+  Leave it empty to ignore such files.
 
 ### Animating part of a formula or drawing
 

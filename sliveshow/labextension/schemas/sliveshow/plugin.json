@@ -17,6 +17,12 @@
       "enumNames": ["None", "Slide", "Fade", "Zoom"],
       "default": "slide"
     },
+    "stylesheet": {
+      "title": "Slide stylesheet",
+      "description": "Name of a CSS file that styles the slides of the notebooks in its own folder - a logo, colours or fonts for one lecture. Its rules reach those slides only, and only while they are shown; relative url()s are read from the same folder. Leave empty to ignore such files.",
+      "type": "string",
+      "default": "sliveshow.css"
+    },
     "reveal_plugins": {
       "title": "Reveal.js plugins",
       "description": "Third-party Reveal.js plugins to load when a slideshow starts. Each entry gives the global variable the plugin registers (name), the URL of its script, optional stylesheet URL(s), and optional configuration merged into Reveal's config. A plugin that fails to load is reported in the browser console and skipped. Two are pre-filled and disabled: chalkboard lets you annotate slides live (B for the chalkboard, C for the notes canvas), and audio-slideshow plays a recording or a spoken narration per slide and advances the show by itself. Set per-cell audio in SLIDESHOW TOOLS; with defaultNotes on, a cell whose slide type is Notes becomes the narration for its slide. Edit this list in the JSON Settings Editor - the form editor mangles the nested config.",

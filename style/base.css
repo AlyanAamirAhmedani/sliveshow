@@ -172,16 +172,58 @@
   text-align: center;
 }
 
-/* Hide notebook cell chrome (toolbar, prompts) inside the slideshow.
-   Also hide the jupyterlab-execute-time "Last executed at … in Xms" footer
-   (class `execute-time` on older builds, `jp-ExecuteTime` on newer) for a
-   cleaner lecture look. */
+/* Hide the cell toolbar inside the slideshow, and the jupyterlab-execute-time
+   "Last executed at … in Xms" footer (class `execute-time` on older builds,
+   `jp-ExecuteTime` on newer) for a cleaner lecture look. */
 .reveal .slides .jp-cell-toolbar,
 .reveal .slides .jp-CellToolbar,
-.reveal .slides .jp-InputPrompt,
-.reveal .slides .jp-OutputPrompt,
 .reveal .slides .execute-time,
 .reveal .slides .jp-ExecuteTime {
+  display: none !important;
+}
+
+/* Prompts stay on the slides (0.2.5). `[*]` is how a presenter sees that a
+   cell is still running and `[3]` that it has run - "Cell status like [*] is
+   useful, and should not be removed in slideshow" (Prof. Chan, 2/10). They
+   keep the notebook's prompt column, so a slide lines up the way the notebook
+   does.
+
+   On a slide a prompt only shows status. In the notebook, pressing on an
+   input prompt starts dragging the cell, and in a full-screen deck - which is
+   the notebook - that could drop the cell somewhere else in the lecture. */
+.reveal .slides .jp-InputPrompt,
+.reveal .slides .jp-OutputPrompt {
+  pointer-events: none;
+}
+
+/* A slide has no "active cell", so every prompt is drawn the way the notebook
+   draws the active one - the full-screen deck would otherwise grey out all
+   but the last cell clicked, and the deck beside the notebook none of them. */
+.reveal .slides .jp-Cell .jp-InputPrompt {
+  opacity: var(--jp-cell-prompt-opacity);
+  color: var(--jp-cell-inprompt-font-color);
+}
+
+.reveal .slides .jp-Cell .jp-OutputPrompt {
+  opacity: var(--jp-cell-prompt-opacity);
+  color: var(--jp-cell-outprompt-font-color);
+}
+
+/* With the prompt column back, a heading's collapse caret came with it: it
+   lives in the prompt. Like the "N cells hidden" button it is a notebook
+   control, and clicking it on a slide would fold the lecture's cells away. */
+.reveal .slides .jp-collapseHeadingButton,
+.reveal .slides .jp-showHiddenCellsButton {
+  display: none !important;
+}
+
+/* The output prompt overlay is JupyterLab's "Collapse Output" strip,
+   positioned over the output prompt column. While that column was hidden the
+   strip lay over the first 64px of the output itself, on top of the ▶ button
+   that %%hermes draws there, and swallowed the click (Prof. Chan, 2/10). A
+   slide shows an output whole, so the toggle has nothing to do here - and
+   using it would write `scrolled` into the cell's metadata. */
+.reveal .slides .jp-OutputArea-promptOverlay {
   display: none !important;
 }
 

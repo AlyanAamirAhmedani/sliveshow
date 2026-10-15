@@ -566,10 +566,17 @@ console.log('resumed ');
     animateSlide();
   });
 
-  // reset animation upon exiting slideshow
+  // Reset the animations when the slideshow enters or leaves full screen.
   document.addEventListener('fullscreenchange', function (event) {
+    var root = Reveal.getRevealElement();
+    // This listener outlives its deck: sliveshow builds a new one for every
+    // show and every rebuild. A deck that has been taken down has nothing to
+    // reset, and its Reveal can no longer say which slide is current.
+    if (!root || !root.isConnected) {
+      return;
+    }
     // scoped to the deck for the same reason as initialize()
-    var elements = Reveal.getRevealElement().querySelectorAll('[data-animate]');
+    var elements = root.querySelectorAll('[data-animate]');
     for (var i = 0; i < elements.length; i++) {
       try {
         if (animatedSVGs[i]?.animation && animatedSVGs[i].animationSchedule) {
@@ -577,6 +584,19 @@ console.log('resumed ');
         }
       } catch (error) {
         console.error('sliveshow: error stopping animation', i, error);
+      }
+    }
+    // Entering full screen: the loop above also stopped the slide on screen,
+    // whose animation started when the deck was built - a moment before
+    // sliveshow asked for full screen. Start it again from the beginning, or
+    // the first slide stays frozen in its `setup` state until you leave it
+    // and come back.
+    var screen = document.fullscreenElement;
+    if (screen && screen.contains(root)) {
+      try {
+        animateSlide(0);
+      } catch (error) {
+        console.error('sliveshow: error restarting animation', error);
       }
     }
   });

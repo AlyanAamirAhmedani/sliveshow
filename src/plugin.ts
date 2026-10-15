@@ -11,6 +11,12 @@ import {
   findSanitizedLeftover,
   IExtractedAnimation
 } from './notebookAnimate';
+import {
+  IDeckStylesheet,
+  applyDeckStylesheet,
+  readDeckStylesheet,
+  stylesheetPath
+} from './deckStyle';
 import Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
 import '@svgdotjs/svg.js';
@@ -88,7 +94,53 @@ interface ISlideshowSession {
   rebuilding: boolean;
   /** True while the presenter is driving the deck rather than the notebook. */
   keysOwned: boolean;
+  /** Class on the deck's `.reveal` that confines its stylesheet to it. */
+  scope: string;
+  /** The notebook folder's stylesheet, scoped to this deck; null if none. */
+  stylesheet: IDeckStylesheet | null;
 }
+
+type WindowingMode = ISlideshowSession['windowingMode'];
+
+/**
+ * Stands in for the observer JupyterLab 4.6 discards when a notebook leaves
+ * its 'contentVisibility' windowing mode; see `setWindowingMode`.
+ */
+const NO_OBSERVER = {
+  observe: (): void => undefined,
+  unobserve: (): void => undefined,
+  disconnect: (): void => undefined,
+  takeRecords: (): IntersectionObserverEntry[] => []
+};
+
+/**
+ * Switch a notebook's windowing mode.
+ *
+ * A deck runs with windowing off ('none'): it needs every cell node, and
+ * nothing may move one back out of a slide. JupyterLab 4.6's default mode,
+ * 'contentVisibility', has a catch. Entering it connects a `cells.changed`
+ * handler that calls `this._contentVisibilityObserver.observe(...)`; leaving
+ * it disconnects that observer and sets it to null, but keeps the handler. So
+ * every cell added, deleted or moved while slides were open threw "Cannot read
+ * properties of null (reading 'observe')". While the mode is 'none' the
+ * handler gets an observer that watches nothing; it is taken away before any
+ * other mode is set, so that JupyterLab creates a real one again.
+ */
+const setWindowingMode = (notebook: any, mode: WindowingMode): void => {
+  if (notebook._contentVisibilityObserver === NO_OBSERVER) {
+    notebook._contentVisibilityObserver = null;
+  }
+  notebook.notebookConfig = { ...notebook.notebookConfig, windowingMode: mode };
+  if (mode === 'none' && notebook._contentVisibilityObserver === null) {
+    notebook._contentVisibilityObserver = NO_OBSERVER;
+  }
+};
+
+/** True when a keystroke aimed at `el` is typing, not a command. */
+const isTyping = (el: HTMLElement): boolean =>
+  el.isContentEditable ||
+  /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) ||
+  !!el.closest('.cm-editor');
 
 /** Resolve after the next animation frame. */
 const nextFrame = (): Promise<void> =>
@@ -203,6 +255,8 @@ const plugin = (
 
   /** Running slideshows, keyed by the panel that hosts the deck. */
   const sessions = new Map<NotebookPanel, ISlideshowSession>();
+  /** Numbers the decks, so each gets a scope class of its own. */
+  let deckCount = 0;
   let csSettings: any = {};
 
   // Animate plugin by Asvin Goel (https://github.com/rajgoel/reveal.js-plugins)
@@ -243,7 +297,8 @@ const plugin = (
       default_transition: setting.get('default_transition')
         .composite as Transition,
       reveal_plugins: (setting.get('reveal_plugins')?.composite ??
-        []) as IRevealPluginSpec[]
+        []) as IRevealPluginSpec[],
+      stylesheet: String(setting.get('stylesheet')?.composite ?? '').trim()
     };
   };
 
@@ -489,10 +544,7 @@ const plugin = (
     // Turn windowing off before the new panel starts rendering cells lazily:
     // the deck needs every cell node, and a windowing pass that lands while we
     // are moving nodes into slides would move them back out.
-    deck.content.notebookConfig = {
-      ...deck.content.notebookConfig,
-      windowingMode: 'none'
-    };
+    setWindowingMode(deck.content, 'none');
     deck.addClass(DECK_CLASS);
     // NEVER assign to `deck.title.label`. DocumentWidget treats a label that
     // differs from the file name as a rename request and renames the file on
@@ -502,7 +554,9 @@ const plugin = (
     // immediately.
     deck.title.className =
       `${deck.title.className ?? ''} ${DECK_TAB_CLASS}`.trim();
-    deck.title.caption = `Sliveshow slides — ${source.context.path}`;
+    deck.title.caption =
+      `Sliveshow slides for ${source.context.path}. Edit in the notebook: ` +
+      'the slides follow it live. Click the slides to drive them with the keys.';
 
     const revealed = (deck as any).revealed;
     if (revealed instanceof Promise) {
@@ -551,7 +605,11 @@ const plugin = (
       cleanups: [],
       released: false,
       rebuilding: false,
-      keysOwned: true
+      // Beside the notebook, the notebook gets the focus (below), so its keys
+      // are the notebook's until the slides are clicked.
+      keysOwned: !windowed,
+      scope: `sliveshow-deck-${++deckCount}`,
+      stylesheet: null
     };
     sessions.set(deck, session);
 
@@ -564,9 +622,13 @@ const plugin = (
       return;
     }
 
+    watchStylesheet(session);
     if (windowed) {
       wireWindowedSession(session);
-      app.shell.activateById(deck.id);
+      // Give the focus back to the notebook. The deck stays on screen and
+      // follows the selection, so the side you type in is the one that should
+      // be active (Prof. Chan, 5/10). A click on the slides hands them the keys.
+      app.shell.activateById(source.id);
     } else {
       const onFullscreenChange = () => {
         if (!document.fullscreenElement) {
@@ -911,6 +973,103 @@ const plugin = (
   };
 
   /**
+   * Keep JupyterLab's notebook shortcuts off a full-screen deck.
+   *
+   * A full-screen deck is the notebook itself, presented. Once a slide has
+   * been clicked a cell has the focus, and JupyterLab's command-mode shortcuts
+   * fire on the letters the slideshow uses: B inserts a cell, X cuts one,
+   * D D deletes one - while chalkboard reads B, X and D as its own. On a hub
+   * with real-time collaboration those edits are saved into the lecture.
+   * JupyterLab's key handler skips a keystroke already marked as handled, and
+   * Reveal's does not, so marking it here gives the key to the slideshow
+   * alone. Left alone: shortcuts with a modifier, Enter (Shift+Enter still runs
+   * a cell), Tab, anything typed into an editor or a form field, and I, so
+   * that I, I can still interrupt a cell that will not finish.
+   *
+   * The deck beside the notebook needs none of this: slide mode takes the
+   * notebook's shortcuts out of play there.
+   */
+  const guardDeckKeys = (session: ISlideshowSession): void => {
+    const deckNode = session.deck.content.node;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (
+        !target ||
+        !deckNode.contains(target) ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        ['Enter', 'Tab', 'i', 'I'].includes(event.key) ||
+        isTyping(target)
+      ) {
+        return;
+      }
+      event.preventDefault();
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    session.cleanups.push(() =>
+      document.removeEventListener('keydown', onKeyDown, true)
+    );
+  };
+
+  /** Read the notebook folder's stylesheet for `session`, if it has one. */
+  const readStylesheet = async (
+    session: ISlideshowSession
+  ): Promise<IDeckStylesheet | null> => {
+    try {
+      const stylesheet = await readDeckStylesheet(
+        app.serviceManager.contents,
+        session.source.context.path,
+        csSettings.stylesheet,
+        `.reveal.${session.scope}`
+      );
+      if (stylesheet && stylesheet.path !== session.stylesheet?.path) {
+        console.log(`sliveshow: styling the slides with ${stylesheet.path}`);
+      }
+      return stylesheet;
+    } catch (e) {
+      // A stylesheet is decoration: never let it stop a lecture.
+      console.warn('sliveshow: could not read the slide stylesheet', e);
+      return null;
+    }
+  };
+
+  /**
+   * Restyle the slides whenever their stylesheet is saved, created, renamed
+   * or deleted - in place, without rebuilding the deck. Beside the notebook,
+   * with the stylesheet open in an editor, that makes styling live.
+   */
+  const watchStylesheet = (session: ISlideshowSession): void => {
+    const contents = app.serviceManager.contents;
+    const watched = stylesheetPath(
+      contents.localPath(session.source.context.path),
+      csSettings.stylesheet
+    );
+    if (!watched) {
+      return;
+    }
+    const onFileChanged = (_: unknown, change: any): void => {
+      const touched = [change?.newValue?.path, change?.oldValue?.path]
+        .filter(path => typeof path === 'string')
+        .map(path => contents.localPath(path));
+      if (!touched.includes(watched) || session.released) {
+        return;
+      }
+      void readStylesheet(session).then(stylesheet => {
+        if (session.released) {
+          return;
+        }
+        session.stylesheet = stylesheet;
+        if (session.container) {
+          applyDeckStylesheet(session.container, stylesheet);
+        }
+      });
+    };
+    contents.fileChanged.connect(onFileChanged);
+    session.cleanups.push(() => contents.fileChanged.disconnect(onFileChanged));
+  };
+
+  /**
    * Build the Reveal deck inside `session.deck`.
    *
    * The deck is inserted into the notebook panel's own content node and the
@@ -930,6 +1089,7 @@ const plugin = (
     const slides: any[] = [];
 
     await panel.context.ready;
+    session.stylesheet = await readStylesheet(session);
     await miscStyles(session, true);
 
     const cells = await getCells(panel);
@@ -1074,10 +1234,13 @@ const plugin = (
     }
 
     const revealContainer = document.createElement('div');
-    revealContainer.className = 'reveal';
+    revealContainer.className = `reveal ${session.scope}`;
     if (session.windowed) {
       revealContainer.classList.add(WINDOWED_CLASS);
     }
+    // Before Reveal and the Animate plugin measure anything, so a stylesheet
+    // that resizes the slides is already in force when they do.
+    applyDeckStylesheet(revealContainer, session.stylesheet);
     const revealSlides = document.createElement('div');
     revealSlides.className = 'slides';
     for (let i = 0; i < slides.length; i++) {
@@ -1200,6 +1363,8 @@ const plugin = (
     if (session.windowed) {
       applySlideMode(session);
       trackDeckGeometry(session);
+    } else {
+      guardDeckKeys(session);
     }
 
     if (mode === 'first') {
@@ -1772,10 +1937,7 @@ const plugin = (
       // stop windowing update, which messes with cell rendering
       // code ref: jupyterlab-rise
       session.windowingMode = panel.content.notebookConfig.windowingMode;
-      panel.content.notebookConfig = {
-        ...panel.content.notebookConfig,
-        windowingMode: 'none'
-      };
+      setWindowingMode(panel.content, 'none');
 
       // Let any windowing work already scheduled for the next frame finish.
       // `_runOnIdleTime` queues `layout.removeWidget(cell)` inside a
@@ -1829,10 +1991,7 @@ const plugin = (
       }
 
       // resume windowing update
-      panel.content.notebookConfig = {
-        ...panel.content.notebookConfig,
-        windowingMode: session.windowingMode
-      };
+      setWindowingMode(panel.content, session.windowingMode);
       // reattach cells
       const cells = await getCells(panel);
       const viewport =
