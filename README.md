@@ -399,7 +399,9 @@ Math inside a `data-animate` block is typeset by MathJax 4 when the block is inj
 
 ### Development install
 
-You will need Node.js and JupyterLab installed.
+You will need Node.js (20.19 or newer, or 22.12 or newer), JupyterLab, and
+`jupyter-builder`, which builds the extension. JupyterLab 4.6 and later
+include it; with an older JupyterLab, run `pip install jupyter-builder`.
 
 ```bash
 # Clone the repo

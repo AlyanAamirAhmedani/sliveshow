@@ -1,0 +1,594 @@
+"use strict";(self.rspackChunksliveshow=self.rspackChunksliveshow||[]).push([[813],{8475(e,t,o){var a=o(1601),n=o.n(a),i=o(6314),s=(o.n(i))()(n());s.push([e.id,`/*
+    See the JupyterLab Developer Guide for useful CSS Patterns:
+
+    https://jupyterlab.readthedocs.io/en/stable/developer/css.html
+*/
+
+.hidden {
+  opacity: 0;
+}
+
+.slide-container {
+  /* The panel we take fullscreen must NOT scroll: each slide section handles
+     its own scrolling. While this was \`overflow: scroll\`, anything tall that a
+     Reveal plugin injects (e.g. chalkboard's canvases) made the whole panel
+     scrollable, so the deck rode up and left a blank band below it. */
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+/* ============================================
+   Alyan Ahmedani — Slideshow Bug Fixes
+   ============================================ */
+
+/* Fix 1 & 3: slides scrollable, content not clipped, no extra padding.
+   \`overflow-y: auto\` (not \`hidden scroll\`) so the scrollbar only appears when
+   the slide actually overflows — matches the reworked layout block below. */
+.reveal .slides > section.present {
+  overflow: hidden auto !important;
+  overscroll-behavior: contain !important;
+}
+
+/* Fix 2: outputs not clipped */
+.reveal .slides .jp-OutputArea {
+  overflow: visible !important;
+}
+
+/* Fix 4: collapse empty output areas causing whitespace */
+.reveal .slides .jp-OutputArea:empty {
+  display: none !important;
+}
+
+/* Fix 5: remove bottom padding from last cell in slide */
+.reveal .slides section .jp-Cell:last-child,
+.reveal .slides section .jp-MarkdownCell:last-child,
+.reveal .slides section .jp-CodeCell:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Fix 6: navigation arrows not clipped */
+.reveal .controls {
+  position: fixed !important;
+  bottom: 16px !important;
+  right: 16px !important;
+  z-index: 9999 !important;
+}
+
+/* Fix 7 (A1 + A2, reworked 0.1.6): Reveal's auto-layout is disabled
+   (disableLayout: true), so reveal applies NO transform/scaling and we own the
+   layout.
+
+   1. ZOOM (Bug A): under hard browser zoom the content drifted off-centre and
+      tall cells clipped. Sizing is done in \`100vw\` (NOT \`100%\`) because
+      \`.reveal\`'s parent is only ~1250px wide even in fullscreen, so \`100%\`
+      clips wide content on wide screens.
+
+   2. SCROLL (Bug B): \`justify-content: safe center\` keeps free space inside the
+      scroll container, so a fast flick + momentum could leave the content
+      scrolled up into that empty gap (the "unusable blank space"). Replaced
+      with flexible \`::before\`/\`::after\` spacers (\`margin: auto\`): they centre
+      content when it fits and collapse to zero when it overflows, so the slide
+      top-aligns and scrolls cleanly from the top. \`overscroll-behavior:
+      contain\` kills the rubber-band overshoot. */
+
+.reveal {
+  width: 100vw !important;
+  height: 100% !important;
+  max-width: 100vw !important;
+  overflow: hidden !important;
+}
+
+.reveal:not(.overview) .slides {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+
+  /* Notebook-faithful alignment (0.1.12). 0.1.6 set \`text-align: center\` here
+     to keep short prose visually centred under browser zoom, but that made the
+     slideshow deviate from how the same content reads in the notebook
+     (Prof. Chan, 21/7). Text now flows left as in a notebook; the content
+     COLUMN is what gets centred — see the shared-width rule below. */
+  text-align: left;
+}
+
+.reveal:not(.overview) .slides > section,
+.reveal:not(.overview) .slides > section > section {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  padding: 3% 4% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+
+  /* stop momentum/rubber-band overshoot and scroll-chaining (Bug B) */
+  overflow: hidden auto !important;
+  overscroll-behavior: contain !important;
+  transform: none !important;
+}
+
+/* Flexible vertical spacers replace \`justify-content: center\`. With zero
+   intrinsic size and \`margin: auto\`, they share the free space equally when
+   content fits (=> vertically centred) and collapse to 0 when content
+   overflows (=> top-aligned, fully scrollable, never clipped at the top). */
+.reveal .slides > section::before,
+.reveal .slides > section::after,
+.reveal .slides > section > section::before,
+.reveal .slides > section > section::after {
+  content: '';
+  flex: 0 0 auto;
+  margin: auto 0;
+}
+
+/* Shared content column (0.1.12). Every top-level block on a slide takes the
+   SAME width and therefore shares ONE left edge, and the column as a whole is
+   centred in the viewport (\`margin: auto\` + \`align-items: center\` above).
+
+   Before, each block was shrink-to-fit and individually centred, so a short
+   admonition/header sat on a different left edge than a wide table — reading
+   as accidental indentation (Prof. Chan, 21/7: "better to have consistent
+   length ... illusion of indentation, especially for short headers").
+
+   \`max-width\` is in px so that zooming in (which shrinks the viewport in CSS
+   px) simply lets the column fill the screen instead of over-constraining it;
+   \`min-width: 0\` overrides the flex default of \`min-width: auto\`, which would
+   otherwise refuse to shrink below intrinsic width and break wrapping. */
+/* stylelint-disable no-descending-specificity */
+.reveal .slides > section > *,
+.reveal .slides > section > section > * {
+  width: 100% !important;
+  max-width: 1100px !important;
+  min-width: 0 !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+  overflow-wrap: break-word;
+}
+
+.reveal .slides .jp-Cell,
+.reveal .slides .jp-RenderedMarkdown,
+.reveal .slides .jp-RenderedHTMLCommon {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  overflow-wrap: break-word;
+}
+/* stylelint-enable no-descending-specificity */
+
+/* Animations stay centred within the content column: an SVG figure is a
+   figure, not prose, so it should sit in the middle of the slide even though
+   the surrounding text is left-aligned. (Notebook-injected animations carry
+   \`.sliveshow-notebook-animation\`, which is centred by its own rule further
+   down — a direct rule beats the inherited left alignment, so it needs no
+   slideshow-specific override.) */
+.reveal .slides [data-animate] {
+  text-align: center;
+}
+
+/* Hide the cell toolbar inside the slideshow, and the jupyterlab-execute-time
+   "Last executed at … in Xms" footer (class \`execute-time\` on older builds,
+   \`jp-ExecuteTime\` on newer) for a cleaner lecture look. */
+.reveal .slides .jp-cell-toolbar,
+.reveal .slides .jp-CellToolbar,
+.reveal .slides .execute-time,
+.reveal .slides .jp-ExecuteTime {
+  display: none !important;
+}
+
+/* Prompts stay on the slides (0.2.5). \`[*]\` is how a presenter sees that a
+   cell is still running and \`[3]\` that it has run - "Cell status like [*] is
+   useful, and should not be removed in slideshow" (Prof. Chan, 2/10). They
+   keep the notebook's prompt column, so a slide lines up the way the notebook
+   does.
+
+   On a slide a prompt only shows status. In the notebook, pressing on an
+   input prompt starts dragging the cell, and in a full-screen deck - which is
+   the notebook - that could drop the cell somewhere else in the lecture. */
+.reveal .slides .jp-InputPrompt,
+.reveal .slides .jp-OutputPrompt {
+  pointer-events: none;
+}
+
+/* A slide has no "active cell", so every prompt is drawn the way the notebook
+   draws the active one - the full-screen deck would otherwise grey out all
+   but the last cell clicked, and the deck beside the notebook none of them. */
+.reveal .slides .jp-Cell .jp-InputPrompt {
+  opacity: var(--jp-cell-prompt-opacity);
+  color: var(--jp-cell-inprompt-font-color);
+}
+
+.reveal .slides .jp-Cell .jp-OutputPrompt {
+  opacity: var(--jp-cell-prompt-opacity);
+  color: var(--jp-cell-outprompt-font-color);
+}
+
+/* With the prompt column back, a heading's collapse caret came with it: it
+   lives in the prompt. Like the "N cells hidden" button it is a notebook
+   control, and clicking it on a slide would fold the lecture's cells away. */
+.reveal .slides .jp-collapseHeadingButton,
+.reveal .slides .jp-showHiddenCellsButton {
+  display: none !important;
+}
+
+/* The output prompt overlay is JupyterLab's "Collapse Output" strip,
+   positioned over the output prompt column. While that column was hidden the
+   strip lay over the first 64px of the output itself, on top of the ▶ button
+   that %%hermes draws there, and swallowed the click (Prof. Chan, 2/10). A
+   slide shows an output whole, so the toggle has nothing to do here - and
+   using it would write \`scrolled\` into the cell's metadata. */
+.reveal .slides .jp-OutputArea-promptOverlay {
+  display: none !important;
+}
+
+/* ============================================
+   In-notebook animations (0.1.8)
+   ============================================ */
+
+/* Container injected into rendered markdown cells for data-animate /
+   {svg-animate} blocks (see src/notebookAnimate.ts). Centre the animation
+   and keep it inside the cell width; double-click replays it. */
+.sliveshow-notebook-animation {
+  text-align: center;
+}
+
+.sliveshow-notebook-animation svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ============================================
+   Reveal plugin overlays (chalkboard) — 0.2.1
+   ============================================ */
+
+/* The chalkboard plugin injects an overlay containing two full-size canvases.
+   Its own stylesheet only styles the colour palette and the board handle, so
+   the canvases keep \`position: static\` and join the slide's flex column —
+   roughly 2000px of extra height. That made the section scrollable, collapsed
+   the centring spacers (see Fix 7 above) and left the blank area Prof. Chan's
+   fast-scroll fix was meant to remove.
+
+   Pin the overlay to the fullscreen box and take the canvases out of flow at
+   their existing origin: no size or offset changes, so drawing still lands
+   exactly under the cursor, but they contribute zero layout height. */
+.overlay.r-overlay,
+.reveal .overlay,
+.reveal .r-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.overlay.r-overlay > canvas,
+.reveal .overlay > canvas,
+.reveal .r-overlay > canvas {
+  /* \`position: absolute\` alone is enough to take the canvases out of the
+     layout flow (which is all we need — see above). Deliberately no \`top\` /
+     \`left\`: chalkboard positions the canvases itself, and pinning them broke
+     the board controls.
+
+     The canvases now overlap instead of stacking in flow, and the chalkboard
+     canvas comes AFTER the colour palette and board handle in document
+     order — so without an explicit stacking order it painted over them and
+     swallowed their clicks (dead palette, dead next/previous board arrows). */
+  position: absolute !important;
+  z-index: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+}
+
+/* Chalkboard's own controls must stay above the canvases and clickable. */
+.overlay.r-overlay > .palette,
+.overlay.r-overlay > .boardhandle,
+.reveal .overlay > .palette,
+.reveal .overlay > .boardhandle,
+.reveal .r-overlay > .palette,
+.reveal .r-overlay > .boardhandle {
+  z-index: 2 !important;
+  pointer-events: auto !important;
+}
+
+/* ============================================
+   myst hover previews in fullscreen (0.2.2)
+   ============================================
+
+   Companion to src/topLayerPortals.ts. Promoting a Radix hover card with the
+   Popover API also opts it into the UA stylesheet for \`[popover]\`, which draws
+   a bordered, padded, opaque box and sets \`inset: 0\`.
+
+   Radix positions the wrapper with inline \`position: fixed; left: 0; top: 0\`
+   plus a transform, so its own top/left already beat the UA rule — but nothing
+   overrides the UA's \`right: 0; bottom: 0\`, which squeezes the card against the
+   right edge of the viewport. Reset those two edges and strip the UA chrome;
+   deliberately do NOT touch top/left, or the transform lands in the wrong
+   place. */
+
+[data-radix-popper-content-wrapper].sliveshow-top-layer {
+  right: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  overflow: visible !important;
+}
+
+/* \`popover=manual\` still gets a ::backdrop box. Keep it invisible so the slide
+   underneath is not dimmed while a preview is open. */
+[data-radix-popper-content-wrapper].sliveshow-top-layer::backdrop {
+  background: transparent !important;
+}
+
+/* ============================================
+   Windowed presenting — slides beside the notebook (0.2.2)
+   ============================================
+
+   "Open beside notebook" opens a SECOND VIEW of the same notebook in a split
+   panel and builds the deck in that view. Both views share one document
+   context, so they share one model and one kernel: an edit or a cell run on
+   the left is on the slide immediately, with nothing to export and nothing to
+   reload.
+
+   The deck is built into the notebook panel's own content node either way —
+   full screen is just \`requestFullscreen()\` on that node. So the only thing
+   windowed mode has to undo is the sizing that assumed the node filled the
+   screen: \`100vw\` widths and \`position: fixed\` controls, both of which are
+   measured against the browser window rather than the panel. */
+
+.reveal.sliveshow-windowed {
+  /* \`.slide-container\` is the notebook's content node, which Lumino positions
+     absolutely, so \`inset: 0\` resolves against the panel. This also lifts the
+     deck over the (now empty) cell viewport left behind in the same node. */
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 5 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  background: var(--jp-layout-color0);
+}
+
+.reveal.sliveshow-windowed .slides {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* stylelint-disable no-descending-specificity */
+.reveal.sliveshow-windowed .slides > section,
+.reveal.sliveshow-windowed .slides > section > section {
+  width: 100% !important;
+  max-width: 100% !important;
+
+  /* A split panel is a fraction of the screen, so give the content more of it
+     than a full-screen slide needs to. */
+  padding: 2% 3% !important;
+}
+/* stylelint-enable no-descending-specificity */
+
+/* Nav arrows belong to the panel, not the browser window. */
+.reveal.sliveshow-windowed .controls {
+  position: absolute !important;
+  bottom: 8px !important;
+  right: 8px !important;
+}
+
+/* Chalkboard appends its overlay to the first \`.reveal\` in the document, so in
+   windowed mode it lands inside the deck. Pinning it to the viewport (the
+   full-screen rule above) would spread it over the whole window, including the
+   notebook being edited; keep it inside the panel instead. */
+.reveal.sliveshow-windowed .overlay.r-overlay,
+.reveal.sliveshow-windowed .r-overlay {
+  position: absolute !important;
+  width: 100% !important;
+
+  /* The canvases below are window-sized and hang outside the panel; clip them
+     to it so the chalkboard never paints over the notebook. */
+  overflow: hidden !important;
+}
+
+/* Put the chalkboard's canvases back at the PAGE origin (0.2.3).
+
+   The plugin records a stroke at \`event.pageX/pageY\` and paints it straight
+   into a canvas whose bitmap is the size of the whole window. Full screen that
+   canvas starts at page (0, 0), so the two coordinate systems agree. In a
+   split panel it started at the panel's corner instead, so every stroke was
+   painted one panel-offset to the right and clipped away - "cannot draw with
+   Chalkboard for beside notebook mode" (Prof. Chan, 21/9).
+
+   Shifting each canvas back by the panel's offset makes canvas (0, 0) page
+   (0, 0) again, so the ink lands under the cursor; \`overflow: hidden\` above
+   keeps the part outside the panel out of sight. trackDeckGeometry() in
+   src/plugin.ts keeps these two variables current. */
+/* stylelint-disable no-descending-specificity */
+.reveal.sliveshow-windowed .overlay.r-overlay > canvas,
+.reveal.sliveshow-windowed .r-overlay > canvas {
+  inset: calc(-1 * var(--sliveshow-deck-top, 0px)) auto auto
+    calc(-1 * var(--sliveshow-deck-left, 0px)) !important;
+}
+/* stylelint-enable no-descending-specificity */
+
+/* The deck opens as a second view of the same notebook, so its tab carries the
+   same file name as the original. Mark it rather than renaming it: a
+   DocumentWidget reads a changed tab LABEL as a request to rename the file on
+   disk, which is exactly what must not happen to someone's lecture. */
+.lm-TabBar-tab.sliveshow-deck-tab .lm-TabBar-tabLabel::before {
+  content: '▶ ';
+  color: var(--jp-brand-color1);
+}
+
+/* ============================================
+   Slide overview (Esc) — 0.2.3
+   ============================================
+
+   Reveal lays the overview out by giving each slide
+   \`transform: translate3d(h * width, 0, 0)\` and scaling the whole \`.slides\`
+   element down. The sizing block above forces \`transform: none\` so that
+   Reveal's auto-layout cannot fight our own, and that rule was killing the
+   overview transforms too: every slide landed on the same coordinates and the
+   deck looked like one cramped, overlapping slide (Prof. Chan, 21/9). The
+   sizing block is now scoped to \`:not(.overview)\`, and the overview gets a
+   plain, readable grid of its own. */
+
+.reveal.overview {
+  overflow: visible !important;
+}
+
+.reveal.overview .slides {
+  text-align: left;
+}
+
+/* stylelint-disable no-descending-specificity */
+.reveal.overview .slides > section,
+.reveal.overview .slides > section > section {
+  box-sizing: border-box !important;
+  padding: 16px !important;
+  overflow: hidden !important;
+  background: var(--jp-layout-color0);
+  border: 1px solid var(--jp-border-color2);
+  border-radius: 4px;
+}
+/* stylelint-enable no-descending-specificity */
+
+.reveal.overview .slides > section.present,
+.reveal.overview .slides > section > section.present {
+  border-color: var(--jp-brand-color1);
+}
+
+/* ============================================
+   Slide mode — the deck shows, it does not edit (0.2.3)
+   ============================================
+
+   The deck panel drops the \`jp-Notebook\` class while presenting, which takes
+   JupyterLab's notebook shortcuts out of play there (see applySlideMode in
+   src/plugin.ts). What is left is the cell chrome that says "you are editing
+   this": the active-cell collapser bar, the selected-cell background and the
+   editor's focus border. None of them belong on a slide. */
+
+.reveal .slides .jp-Collapser,
+.reveal .slides .jp-cell-menu,
+.reveal .slides .jp-Cell-Placeholder {
+  display: none !important;
+}
+
+/* stylelint-disable no-descending-specificity */
+.reveal .slides .jp-Cell,
+.reveal .slides .jp-Cell.jp-mod-active,
+.reveal .slides .jp-Cell.jp-mod-selected,
+.reveal .slides .jp-Cell.jp-mod-selected.jp-mod-active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+/* stylelint-enable no-descending-specificity */
+
+.reveal .slides .jp-InputArea-editor,
+.reveal .slides .jp-Cell.jp-mod-active .jp-InputArea-editor {
+  border-color: transparent !important;
+}
+
+.sliveshow-slide-mode {
+  background: var(--jp-layout-color0);
+}
+
+/* ============================================
+   Fragments inside an animation (0.2.3)
+   ============================================
+
+   \`.reveal .fragment:not(.custom)\` sets \`opacity: 0; visibility: hidden\`, and
+   on an SVG that CSS beats the attributes svg.js animates — so an element
+   that is both a fragment and animated never appears at all (Prof. Chan,
+   21/9: "reveal.js special classes such as fragment conflicts with svg
+   animation"). plugin.ts adds Reveal's own \`.custom\` opt-out to fragments
+   inside an animation block so the animation owns their opacity; the
+   transition below would otherwise still smear every frame svg.js writes. */
+
+/* stylelint-disable no-descending-specificity */
+.reveal .slides [data-animate] .fragment,
+.sliveshow-notebook-animation .fragment {
+  transition: none !important;
+}
+/* stylelint-enable no-descending-specificity */
+
+/* ============================================
+   Speaker notes and audio narration (0.2.4)
+   ============================================
+
+   A cell whose slide type is "Notes" becomes \`<aside class="notes">\` on its
+   slide instead of being shown on it (see attachNotes in src/plugin.ts).
+   Reveal hides asides itself, but sliveshow's own layout rules are aggressive
+   enough that it is worth being explicit. */
+
+.reveal .slides aside.notes {
+  display: none !important;
+}
+
+/* rajgoel's audio-slideshow plugin positions its player with an inline
+   \`position: fixed\` style, so in a split panel it lands over the notebook
+   instead of under the slides. Same shape of problem as the chalkboard
+   canvases above, and the same remedy: keep it inside the deck. */
+.reveal.sliveshow-windowed .audio-controls {
+  position: absolute !important;
+  right: auto !important;
+  bottom: 6px !important;
+  left: 8% !important;
+  width: 84% !important;
+  z-index: 30 !important;
+}
+`,""]),o.d(t,{},{A:s})},4563(e,t,o){var a=o(1601),n=o.n(a),i=o(6314),s=(o.n(i))()(n());s.push([e.id,`.reveal .slides {
+  text-align: inherit !important;
+  width: 1250px !important;
+}
+
+.reveal .hide-code .jp-Cell-inputWrapper {
+  display: none;
+}
+
+.reveal .slides section[data-transition='slide'].horizontal.past,
+.reveal .slides section[data-transition~='slide-out'].horizontal.past {
+  transform: translate(-150%, 0);
+}
+
+.reveal .slides section[data-transition='slide'].horizontal.future,
+.reveal .slides section[data-transition~='slide-in'].horizontal.future {
+  transform: translate(150%, 0);
+}
+
+.reveal .slides section[data-transition='slide'].vertical.past,
+.reveal .slides section[data-transition~='slide-out'].vertical.past {
+  transform: translate(0, -150%);
+}
+
+.reveal .slides section[data-transition='slide'].vertical.future,
+.reveal .slides section[data-transition~='slide-in'].vertical.future {
+  transform: translate(0, 150%);
+}
+
+.reveal .fragment.zoom {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.reveal .fragment.zoom.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.reveal .fragment.none {
+  transition: none;
+}
+`,""]),o.d(t,{},{A:s})},6314(e){e.exports=function(e){var t=[];return t.toString=function(){return this.map(function(t){var o="",a=void 0!==t[5];return t[4]&&(o+="@supports (".concat(t[4],") {")),t[2]&&(o+="@media ".concat(t[2]," {")),a&&(o+="@layer".concat(t[5].length>0?" ".concat(t[5]):""," {")),o+=e(t),a&&(o+="}"),t[2]&&(o+="}"),t[4]&&(o+="}"),o}).join("")},t.i=function(e,o,a,n,i){"string"==typeof e&&(e=[[null,e,void 0]]);var s={};if(a)for(var r=0;r<this.length;r++){var l=this[r][0];null!=l&&(s[l]=!0)}for(var d=0;d<e.length;d++){var p=[].concat(e[d]);a&&s[p[0]]||(void 0!==i&&(void 0===p[5]||(p[1]="@layer".concat(p[5].length>0?" ".concat(p[5]):""," {").concat(p[1],"}")),p[5]=i),o&&(p[2]&&(p[1]="@media ".concat(p[2]," {").concat(p[1],"}")),p[2]=o),n&&(p[4]?(p[1]="@supports (".concat(p[4],") {").concat(p[1],"}"),p[4]=n):p[4]="".concat(n)),t.push(p))}},t}},1601(e){e.exports=function(e){return e[1]}},5072(e){var t=[];function o(e){for(var o=-1,a=0;a<t.length;a++)if(t[a].identifier===e){o=a;break}return o}function a(e,a){for(var n={},i=[],s=0;s<e.length;s++){var r=e[s],l=a.base?r[0]+a.base:r[0],d=n[l]||0,p="".concat(l," ").concat(d);n[l]=d+1;var c=o(p),h={css:r[1],media:r[2],sourceMap:r[3],supports:r[4],layer:r[5]};if(-1!==c)t[c].references++,t[c].updater(h);else{var v=function(e,t){var o=t.domAPI(t);return o.update(e),function(t){t?(t.css!==e.css||t.media!==e.media||t.sourceMap!==e.sourceMap||t.supports!==e.supports||t.layer!==e.layer)&&o.update(e=t):o.remove()}}(h,a);a.byIndex=s,t.splice(s,0,{identifier:p,updater:v,references:1})}i.push(p)}return i}e.exports=function(e,n){var i=a(e=e||[],n=n||{});return function(e){e=e||[];for(var s=0;s<i.length;s++){var r=o(i[s]);t[r].references--}for(var l=a(e,n),d=0;d<i.length;d++){var p=o(i[d]);0===t[p].references&&(t[p].updater(),t.splice(p,1))}i=l}}},7659(e){var t={};e.exports=function(e,o){var a=function(e){if(void 0===t[e]){var o=document.querySelector(e);if(window.HTMLIFrameElement&&o instanceof window.HTMLIFrameElement)try{o=o.contentDocument.head}catch(e){o=null}t[e]=o}return t[e]}(e);if(!a)throw Error("Couldn't find a style target. This probably means that the value for the 'insert' parameter is invalid.");a.appendChild(o)}},540(e){e.exports=function(e){var t=document.createElement("style");return e.setAttributes(t,e.attributes),e.insert(t,e.options),t}},5056(e,t,o){e.exports=function(e){var t=o.nc;t&&e.setAttribute("nonce",t)}},7825(e){e.exports=function(e){if("u"<typeof document)return{update:function(){},remove:function(){}};var t=e.insertStyleElement(e);return{update:function(o){var a,n,i;a="",o.supports&&(a+="@supports (".concat(o.supports,") {")),o.media&&(a+="@media ".concat(o.media," {")),(n=void 0!==o.layer)&&(a+="@layer".concat(o.layer.length>0?" ".concat(o.layer):""," {")),a+=o.css,n&&(a+="}"),o.media&&(a+="}"),o.supports&&(a+="}"),(i=o.sourceMap)&&"u">typeof btoa&&(a+="\n/*# sourceMappingURL=data:application/json;base64,".concat(btoa(unescape(encodeURIComponent(JSON.stringify(i))))," */")),e.styleTagTransform(a,t,e.options)},remove:function(){var e;null===(e=t).parentNode||e.parentNode.removeChild(e)}}}},1113(e){e.exports=function(e,t){if(t.styleSheet)t.styleSheet.cssText=e;else{for(;t.firstChild;)t.removeChild(t.firstChild);t.appendChild(document.createTextNode(e))}}},2988(e,t,o){var a=o(5072),n=o.n(a),i=o(7825),s=o.n(i),r=o(7659),l=o.n(r),d=o(5056),p=o.n(d),c=o(540),h=o.n(c),v=o(1113),m=o.n(v),u=o(8475),w={};w.styleTagTransform=m(),w.setAttributes=p(),w.insert=l().bind(null,"head"),w.domAPI=s(),w.insertStyleElement=h(),n()(u.A,w),u.A&&u.A.locals&&u.A.locals;var f=o(4563),b={};b.styleTagTransform=m(),b.setAttributes=p(),b.insert=l().bind(null,"head"),b.domAPI=s(),b.insertStyleElement=h(),n()(f.A,b),f.A&&f.A.locals&&f.A.locals}}]);
